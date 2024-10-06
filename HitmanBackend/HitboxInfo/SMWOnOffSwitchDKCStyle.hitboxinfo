@@ -1,0 +1,20 @@
+PoseHitBoxes:
+    db $00,$01,$FF
+	db $00,$01,$FF
+	
+HitboxXOffset:
+	dw $FFFE,$0000
+HitboxYOffset:
+	dw $FFFC,$0000
+HitboxWidth:
+	dw $0014,$0012
+HitboxHeight:
+	dw $0012,$0010
+HitboxAction1:
+	dw $0000,$0000
+HitboxAction2:
+	dw $0002,$0002
+
+Actions:
+	dw CheckBounce
+	dw CheckPlayerIsAbove

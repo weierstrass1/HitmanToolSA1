@@ -1,0 +1,63 @@
+PoseHitBoxes:
+    db $00,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $00,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $02,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $03,$FF
+	db $04,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	db $01,$FF
+	
+HitboxXOffset: 
+	dw $FFFC,$FFFC,$FFFD,$FFFC,$FFFC
+HitboxXOffsetFlip:
+    dw $FFFD,$FFFD,$FFFF,$FFFD,$FFFD
+HitboxYOffset: 
+	dw $FFEE,$FFF2,$FFF0,$FFF6,$FFEF
+HitboxWidth: 
+	dw $0017,$0017,$0014,$0017,$0017
+HitboxHeight: 
+	dw $001F,$0018,$001F,$0014,$001E
+HitboxAction1: 
+	dw $0000,$0000,$0000,$0000,$0000
+HitboxAction2: 
+	dw $0002,$0002,$0002,$0002,$0002
+	
+Actions:
+    dw CheckBounce
+	dw CheckPlayerIsAbove

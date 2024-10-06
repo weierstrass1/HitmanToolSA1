@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33829.357
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HitmanTool", "HitmanTool\HitmanTool.csproj", "{25CA44AD-8D5C-4FFC-8AE1-5F79F89072F5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HitmanBackend", "HitmanBackend\HitmanBackend.csproj", "{D156618B-6D61-4441-A6D6-B39B8003B040}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{25CA44AD-8D5C-4FFC-8AE1-5F79F89072F5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{25CA44AD-8D5C-4FFC-8AE1-5F79F89072F5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{25CA44AD-8D5C-4FFC-8AE1-5F79F89072F5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{25CA44AD-8D5C-4FFC-8AE1-5F79F89072F5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D156618B-6D61-4441-A6D6-B39B8003B040}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D156618B-6D61-4441-A6D6-B39B8003B040}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D156618B-6D61-4441-A6D6-B39B8003B040}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D156618B-6D61-4441-A6D6-B39B8003B040}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {56008F98-62B7-46E7-B5CB-A12D9C536AA3}
+	EndGlobalSection
+EndGlobal
