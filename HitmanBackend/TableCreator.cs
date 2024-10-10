@@ -95,7 +95,7 @@ namespace HitmanBackend
         {
             StringBuilder sb = new();
             foreach (string action in actions)
-                sb.AppendLine($"\tdl HitmanRoutines_{action}");
+                sb.AppendLine($"\tdl Hitman_Callback_{action}");
             return '\n'+sb.ToString();
         }
         public static string Defines(List<HitboxInfo> infos)
@@ -112,9 +112,7 @@ namespace HitmanBackend
         public static string RoutinesIncludes(List<string> actions)
         {
             StringBuilder sb = new();
-            sb.AppendLine("namespace HitmanRoutines");
-            sb.AppendLine($"\tincsrc \"Routines/ProcessHitboxes.asm\"");
-            sb.AppendLine($"\tincsrc \"Routines/GetHitBoxClippingB.asm\"");
+            sb.AppendLine("namespace Hitman_Callback");
             foreach (var action in actions)
                 sb.AppendLine($"\tincsrc \"Routines/{action}.asm\"");
             sb.AppendLine("namespace off");

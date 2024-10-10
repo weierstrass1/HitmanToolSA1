@@ -7,66 +7,35 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="HitboxInfo\DKC2BigWheel.hitboxinfo">
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="ASM\HitmanDefines.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKC2Zinger.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKC3ReKoil.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCArmy.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCBarrel.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCExplosion.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCFlyingNecky.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCFuelPlatform.hitboxinfo">
+    <None Update="CustomProperties\HitboxSystem.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="HitboxInfo\DKCGnawty.hitboxinfo">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKCKlaptrap.hitboxinfo">
+    <None Update="Patch\Files\HitmanGeneralDefines.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKCKlump.hitboxinfo">
+    <None Update="Patch\Hitman.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKCKritter.hitboxinfo">
+    <None Update="PixiRoutines\Spawn\Sprite.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKCKrusha.hitboxinfo">
+    <None Update="PixiRoutines\Spawn\SpriteSafe.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="HitboxInfo\DKCNecky.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCNeckyProjectile.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCRockkroc.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCStalactite.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\DKCThrowableBarrel.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\SMMMidwayFlag.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="HitboxInfo\SMWOnOffSwitchDKCStyle.hitboxinfo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Patch\NewFolder\" />
   </ItemGroup>
 
 </Project>
