@@ -1,13 +1,15 @@
 if read1($00FFD5) == $23
     fullsa1rom
     !sa1 = 1
+    !rom = $000000
 else
     lorom
     !sa1 = 0
+    !rom = $800000
 endif
 
-org $07F7D2
-    autoclean JML InitSpriteTables|!rom
+org $07F7D2|!rom
+    autoclean JML InitSpriteTables
     dl RoutinesTable
 
 freecode
@@ -30,7 +32,7 @@ incsrc "Files/CustomPropertiesSetup.asm"
 incsrc "Files/CustomPropertiesTables.asm"
 
 RoutinesTable:
-    incsrc "RoutinesTable.asm"
+    incsrc "Files/RoutinesTable.asm"
 
 incsrc "Files/Includes.asm"
 

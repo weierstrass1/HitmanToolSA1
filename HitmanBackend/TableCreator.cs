@@ -114,7 +114,7 @@ namespace HitmanBackend
             StringBuilder sb = new();
             sb.AppendLine("namespace Hitman_Callback");
             foreach (var action in actions)
-                sb.AppendLine($"\tincsrc \"Routines/{action}.asm\"");
+                sb.AppendLine($"\tincsrc \"../Routines/{action}.asm\"");
             sb.AppendLine("namespace off");
             return sb.ToString();
         }

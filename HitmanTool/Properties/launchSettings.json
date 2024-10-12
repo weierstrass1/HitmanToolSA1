@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HitmanTool": {
+      "commandName": "Project",
+      "commandLineArgs": "-use-settings"
+    }
+  }
+}

@@ -1,4 +1,6 @@
 ﻿using HitmanBackend;
+using HitmanBackend.DTO;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -7,6 +9,9 @@ internal class Program
 {
     private static void Main(string[] args)
     {
+        if(!buildSettings(args, out Settings setting))
+            return;
+
         bool error = false;
         List<HitboxInfo> hitboxInfos = HitmanTool.GetAllHitboxInfo("HitboxInfo");
         List<Hitbox> hitboxes = HitmanTool.GetAllHitboxes(hitboxInfos);
@@ -102,7 +107,7 @@ internal class Program
 
         foreach (var routine in baseRoutines)
         {
-            baseincludes.AppendLine($"\tincsrc \"BaseRoutines/{routine}.asm\"");
+            baseincludes.AppendLine($"\tincsrc \"../BaseRoutines/{routine}.asm\"");
             routinesTable.AppendLine($"\tdl Hitman_Base_{routine}");
             routinesAddress.AppendLine($"!Hitman_Base_{routine} = Read3($07F7D6)+${addressAdder.ToString("X4")}");
             addressAdder += 3;
@@ -144,7 +149,7 @@ internal class Program
 
         string propTablePath = Path.Combine(filePath, "CustomPropertiesTables.asm");
 
-        string propTable = CustomPropertiesManager.GeneratePropertiesTables(properties, spriteProperties, "list.txt");
+        string propTable = CustomPropertiesManager.GeneratePropertiesTables(properties, spriteProperties, setting.PixiList);
 
         if (File.Exists(propTablePath))
             File.Delete(propTablePath);
@@ -156,5 +161,110 @@ internal class Program
         if (File.Exists(propSetupPath))
             File.Delete(propSetupPath);
         File.WriteAllText(propSetupPath, propsetup);
+
+        string pixiRoutinesPath = Path.Combine("PixiRoutines");
+        string targetPixiRoutinePath = Path.Combine(setting.PixiFolder, "routines");
+        string[] files = Directory.GetFiles(pixiRoutinesPath, "*.asm", SearchOption.AllDirectories);
+
+        string relPath;
+        foreach(var file in files)
+        {
+            relPath = $".{file[pixiRoutinesPath.Length..]}";
+            File.Copy(file, Path.Combine(targetPixiRoutinePath, relPath), true);
+        }
+
+        File.Copy(setting.InputPath, "test.smc", true);
+
+        string PatchPath = Path.Combine("Patch", "Hitman.asm");
+
+        PatchApplier.Apply("test.smc", PatchPath);
+
+        File.Copy("test.smc", setting.OutputPath, true);
+        File.Delete("test.smc");
+
+        string extradefinesPath = Path.Combine(setting.PixiFolder, 
+            "asm", "ExtraDefines", "HitmanDefines.asm");
+
+        File.Copy(Defines, extradefinesPath, true);
+    }
+    private static bool buildSettings(string[] args, out Settings settings)
+    {
+        string settingsPath = Path.Combine("Json", "Settings.json");
+        string settingcontent = File.ReadAllText(settingsPath);
+        settings = JsonConvert.DeserializeObject<Settings>(settingcontent)!;
+
+        bool doInput = true;
+        bool doOutput = true;
+        bool doPixiFolder = true;
+        bool dolist = true;
+
+        if(args != null && args.Length > 0 && args[0].ToLower() == "-use-settings")
+        {
+            doInput = string.IsNullOrWhiteSpace(settings.InputPath) || 
+                !Path.Exists(settings.InputPath);
+            doOutput = string.IsNullOrWhiteSpace(settings.OutputPath) ||
+                !Path.Exists(settings.OutputPath);
+            doPixiFolder = string.IsNullOrWhiteSpace(settings.PixiFolder) ||
+                !Path.Exists(settings.PixiFolder);
+            dolist = string.IsNullOrWhiteSpace(settings.PixiList) ||
+                !Path.Exists(settings.PixiList);
+        }
+
+        if(doInput)
+        {
+            Console.WriteLine("Write ROM Input Path (you can also Drag n Drop your rom to the console)");
+            settings.InputPath = Console.ReadLine().Replace("\"", "");
+            if (string.IsNullOrWhiteSpace(settings.InputPath) ||
+                !Path.Exists(settings.InputPath))
+            {
+                Console.WriteLine("Input Path is not Valid.");
+                return false;
+            }
+        }
+        if (doOutput)
+        {
+            Console.WriteLine("Write ROM Out Path (you can also Drag n Drop your rom to the console)");
+            settings.OutputPath = Console.ReadLine().Replace("\"", "");
+            if (string.IsNullOrWhiteSpace(settings.OutputPath) ||
+                !Path.Exists(settings.OutputPath))
+            {
+                Console.WriteLine("Output Path is not Valid.");
+                return false;
+            }
+        }
+        if (doPixiFolder)
+        {
+            Console.WriteLine("Write Pixi Folder Path (you can also Drag n Drop your Pixi Folder to the console)");
+            settings.PixiFolder = Console.ReadLine().Replace("\"", "");
+            if (string.IsNullOrWhiteSpace(settings.PixiFolder) ||
+                !Path.Exists(settings.PixiFolder))
+            { 
+                Console.WriteLine("Pixi Folder is not Valid.");
+                return false;
+            }
+        }
+        if (dolist)
+        {
+            Console.WriteLine("Write Pixi List Path (you can also Drag n Drop your Pixi List to the console)");
+            settings.PixiList = Console.ReadLine().Replace("\"", "");
+            if (string.IsNullOrWhiteSpace(settings.PixiList) ||
+                !Path.Exists(settings.PixiList))
+            {
+                Console.WriteLine("Pixi List Path is not Valid.");
+                return false;
+            }
+        }
+
+        settings.InputPath = Path.GetRelativePath(@".\", settings.InputPath);
+        settings.OutputPath = Path.GetRelativePath(@".\", settings.OutputPath);
+        settings.PixiFolder = Path.GetRelativePath(@".\", settings.PixiFolder);
+        settings.PixiList = Path.GetRelativePath(@".\", settings.InputPath);
+
+        string jsonSet = JsonConvert.SerializeObject(settings, Formatting.Indented);
+
+        File.Delete(settingsPath);
+        File.WriteAllText(settingsPath, jsonSet);
+
+        return true;
     }
 }
