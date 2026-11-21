@@ -1,0 +1,279 @@
+{{Select Language|Hitman_Tool_sprite_guide}}
+
+This guide shows how to create sprite hitboxes and use them to check for collisions with Mario, projectiles, and other sprites.
+
+== What you need ==
+
+If this is your first time installing Hitman Tool, follow the [[Hitman_Tool_Quick_Start|Quick Start]] to set up your paths and find out which ROM to use with PIXI.
+
+== Create hitboxes for a Normal sprite ==
+
+=== Define and link the boxes ===
+
+Start with a sprite that has two poses. Pose 0 uses a 16 × 16 pixel box. Pose 1 keeps the same width, but the box starts 8 pixels lower and is only 8 pixels tall.
+
+Save this as <code>MiSprite.hitboxinfo</code> next to the sprite's main ASM file.
+
+<pre>
+HitboxesPerPose:
+    .Pose0 0
+    .Pose1 1
+
+Hitbox0:
+    .Width $10
+    .Height $10
+
+Hitbox1:
+    .YOffset $08
+    .Width $10
+    .Height $08
+</pre>
+
+In the same folder, create <code>MiSprite.hitman.json</code>. Setting <code>HitboxSystem</code> to <code>03</code> tells Hitman to use the current pose when another sprite checks for a collision with yours.
+
+<pre>
+{
+  "Name": "MiSprite",
+  "IsCustom": true,
+  "Properties": [
+    { "PropertyName": "HitboxSystem", "Value": "03" }
+  ]
+}
+</pre>
+
+Add these lines to the sprite's main ASM file.
+
+<pre>
+;#inchbi "MiSprite.hitboxinfo"
+;#inchmprop "MiSprite.hitman.json"
+</pre>
+
+See [[Hitman_Tool_files_and_formats#HitboxInfo|HitboxInfo]] and [[Hitman_Tool_ASM_API#Publish a Normal sprite's hitbox|Publish a Normal sprite's hitbox]] for other ways to set up boxes.
+
+=== Tell Hitman which pose the sprite is using ===
+
+To keep the boxes in sync with the animation, use the same pose index you use to draw the sprite. Store the base context plus the pose index in INIT and update it whenever the pose changes. This example starts at pose 0 without flipping.
+
+<pre>
+; A and indices are 8-bit. X = Normal sprite slot.
+LDA.b #!MiSpriteHitboxContext
+STA !HitmanNormalContextIDLow,x
+LDA.b #!MiSpriteHitboxContext>>8
+STA !HitmanNormalContextIDHigh,x
+LDA #$00
+STA !HitmanNormalFlip,x
+</pre>
+
+For pose 1, add 1 to <code>!MiSpriteHitboxContext</code> before splitting it into two bytes. Update <code>!HitmanNormalFlip,x</code> when the sprite flips. The values 0, 1, 2, and 3 mean no flip, horizontal, vertical, and both. Set a pivot in the hitbox file if you want an offset to mirror along that axis.
+
+=== Detect a collision with Mario ===
+
+Pass the base context plus the current pose to Hitman. <code>!PoseIndex</code> holds the current pose index. You can define a table with one byte per slot and update it when the pose changes. With Dynamic Xtreme, you can use <code>!LastPoseIndex,x</code> if it contains a valid pose and the hitbox file uses the same indices. In this example, the sprite jumps when it collides with Mario.
+
+<pre>
+; A and indices are 8-bit. X = Normal sprite slot.
+LDA !HitmanNormalFlip,x
+STA !HitmanSprite1Flip
+LDA !PoseIndex,x
+REP #$21
+AND.w #$00FF
+ADC.w #!MiSpriteHitboxContext
+JSL !Hitman_Base_PlayerNormalSpriteInteractionWithoutCallback
+BCC .SinContacto
+LDA #$E0
+STA !SpriteYSpeed,x
+.SinContacto
+</pre>
+
+With <code>WithoutCallback</code>, Carry is set if the sprite collides with Mario. To run a different action for each box, assign <code>.OnPlayerCollision</code> or <code>.OnPlayerNonCollision</code> and use <code>!Hitman_Base_PlayerNormalSpriteInteraction</code>. In that version, Carry indicates whether the callbacks left a result in <code>!HitmanDefault</code>. See [[Hitman_Tool_ASM_API#PlayerSpriteInteraction|PlayerSpriteInteraction]] and [[Hitman_Tool_ASM_API#Create a callback|Create a callback]].
+
+=== Use a single hitbox on a Normal sprite ===
+
+To set the size and position from ASM, store the X and Y offsets, width, and height in the sprite's tables. Call <code>PlayerNormalSpriteOneHitboxInteraction</code> to see if it collides with Mario.
+
+<pre>
+; A and indices are 8-bit. X = Normal sprite slot.
+LDA #$02
+STA !HitmanNormalXOffLow,x
+LDA #$FC
+STA !HitmanNormalYOffLow,x
+LDA #$0C
+STA !HitmanNormalWidthLow,x
+LDA #$10
+STA !HitmanNormalHeightLow,x
+
+JSL !Hitman_Base_PlayerNormalSpriteOneHitboxInteraction
+BCC .SinChoque
+; Handle the collision with Mario here.
+.SinChoque
+</pre>
+
+The box is 12 × 16 pixels, starting 2 pixels right and 4 pixels above the sprite's origin. For a fixed box, write the four values in INIT and leave the call in MAIN. Set <code>HitboxSystem</code> to <code>02</code> if other sprites should use the same box when checking collisions.
+
+=== Use a 16-bit hitbox ===
+
+Use <code>PlayerNormalSpriteOneLongHitboxInteraction</code> when the box needs larger dimensions or offsets. Write both bytes of each value. This box is 288 × 32 pixels and starts 144 pixels left and 4 pixels above the sprite's origin.
+
+<pre>
+; A and indices are 8-bit. X = Normal sprite slot.
+; X offset = $FF70 (-144), Y offset = $FFFC (-4).
+LDA #$70
+STA !HitmanNormalXOffLow,x
+LDA #$FC
+STA !HitmanNormalYOffLow,x
+LDA #$FF
+STA !HitmanNormalXOffHigh,x
+STA !HitmanNormalYOffHigh,x
+
+; Width = $0120 (288), height = $0020 (32).
+LDA #$20
+STA !HitmanNormalWidthLow,x
+STA !HitmanNormalHeightLow,x
+LDA #$01
+STA !HitmanNormalWidthHigh,x
+LDA #$00
+STA !HitmanNormalHeightHigh,x
+
+JSL !Hitman_Base_PlayerNormalSpriteOneLongHitboxInteraction
+BCC .SinChoque
+; Handle the collision with Mario here.
+.SinChoque
+</pre>
+
+For a fixed box, write the values in INIT and call the routine from MAIN. Set <code>HitboxSystem</code> to <code>04</code> so other sprites can check this box.
+
+== Respond to a vanilla interaction ==
+
+Suppose you want a fireball to make the sprite jump. Disable the game's usual response to the hit and leave the notification enabled.
+
+Add these two properties to the sprite's JSON. Keep <code>HitboxSystem</code> in the same list if you already set it.
+
+<pre>
+{ "PropertyName": "VanillaEventMask", "Value": "08" },
+{ "PropertyName": "VanillaResponseMask", "Value": "77" }
+</pre>
+
+Add <code>"VanillaCallbacks": { "Fireball": "MiSpriteAlRecibirFuego" }</code> to the JSON. Save the routine as <code>Routines/MiSpriteAlRecibirFuego.asm</code> inside Hitman Tool.
+
+<pre>
+MiSpriteAlRecibirFuego:
+    ; A = event, X = target, Y = Extended sprite slot.
+    LDA #$E0
+    STA !SpriteYSpeed,x
+    RTL
+</pre>
+
+To respond in MAIN instead, enable the event and check its bit in <code>!Hitman_Prop_ActionFlag,x</code>. Clear that bit once you have handled it. See [[Hitman_Tool_ASM_API#Event flags and callbacks|Event flags and callbacks]] for the other events.
+
+== Adapt the examples to Cluster sprites and Extended sprites ==
+
+All three families can use the same <code>MiSprite.hitboxinfo</code>. Link it with <code>;#inchbi</code> and keep the base-context-plus-pose calculation. The example's <code>HitboxSystem</code> JSON and <code>;#inchmprop</code> directive apply to Normal sprites.
+
+{| class="wikitable"
+! Original example !! Cluster sprite !! Extended sprite
+|-
+| Put the Normal sprite slot in X. || Put the Cluster sprite slot in X. || Put the Extended sprite slot in X.
+|-
+| Write <code>!HitmanNormalContextIDLow,x</code> and <code>!HitmanNormalContextIDHigh,x</code>. || Use <code>!HitmanClusterContextIDLow,x</code> and <code>!HitmanClusterContextIDHigh,x</code>. || Use <code>!HitmanExtendedContextIDLow,x</code> and <code>!HitmanExtendedContextIDHigh,x</code>.
+|-
+| Use <code>!HitmanNormalFlip,x</code>. || Use <code>!HitmanClusterFlip,x</code>. || Use <code>!HitmanExtendedFlip,x</code>.
+|-
+| Call <code>!Hitman_Base_PlayerNormalSpriteInteractionWithoutCallback</code>. || Call <code>!Hitman_Base_PlayerClusterSpriteInteractionWithoutCallback</code>. || Call <code>!Hitman_Base_PlayerExtendedSpriteInteractionWithoutCallback</code>.
+|}
+
+Keep <code>BCC .SinContacto</code> to skip the response when there is no collision. If you want the sprite to jump, write to its family's velocity table. <code>!SpriteYSpeed,x</code> is for Normal sprites. To use callbacks, remove <code>WithoutCallback</code> from the routine name and read <code>!HitmanDefault</code>.
+
+If the Extended sprite should also collide with Normal sprites as a projectile, configure it by number in <code>ASM/ExtendedSpriteTablesConfig.asm</code>. Choose <code>$03</code> to use its pose hitboxes in that check. See [[Hitman_Tool_ASM_API#Configure Extended sprites|Configure Extended sprites]].
+
+== Detect collisions between sprites from ASM ==
+
+If you already have both slots, these routines set Carry when the sprites collide.
+
+{| class="wikitable"
+! Pair !! Call
+|-
+| Two Normal sprites || <code>JSL !Hitman_Base_CheckNormalPair</code>. Put one Normal sprite slot in X and the other in Y.
+|-
+| Extended sprite and Normal sprite || <code>JSL !Hitman_Base_CheckExtendedNormalPair</code>. Put the Normal sprite slot in X and the Extended sprite slot in Y. Configure the Extended sprite's hitbox mode first.
+|}
+
+=== Compare boxes from other sprite families ===
+
+<code>AnyNormalSpriteInteractionOneHitbox</code> looks up a Normal sprite's box configuration. For a Cluster or Extended sprite on the receiving side, use the box format it was set up to use. If both sprites use one RAM box, use these calls. Each takes the slot for its family in X.
+
+{| class="wikitable"
+! Family !! Load HB1 !! Load HB2
+|-
+| Normal sprite || <code>NormalSpriteOneHitbox1</code> || <code>NormalSpriteOneHitbox2</code>
+|-
+| Cluster sprite || <code>ClusterSpriteOneHitbox1</code> || <code>ClusterSpriteOneHitbox2</code>
+|-
+| Extended sprite || <code>ExtendedSpriteOneHitbox1</code> || <code>ExtendedSpriteOneHitbox2</code>
+|}
+
+Call <code>JSL !Hitman_Base_CheckContact</code> once both boxes are ready and read Carry. Use the <code>LongOneHitbox</code> variant to load a box with 16-bit fields. If the other sprite uses a pose with several boxes, use <code>GetHitbox2</code> to load each box and compare it with HB1. See [[Hitman_Tool_ASM_API#Prepare and compare boxes|Prepare and compare boxes]].
+
+== Disable collisions between Normal sprites ==
+
+If one sprite carries another, you can stop them from colliding while they are together. Put the carrier's slot in X and the passenger's slot in Y. Call <code>SetSpritePairCollision</code> with A set to <code>$00</code> to block the pair. When the carrier releases the passenger, set A to <code>$01</code> to allow collisions again.
+
+<pre>
+; A and indices are 8-bit. X = carrier, Y = passenger.
+LDA #$00
+JSL !Hitman_Base_SetSpritePairCollision
+
+; On release, after checking that Y still identifies the passenger.
+LDA #$01
+JSL !Hitman_Base_SetSpritePairCollision
+</pre>
+
+This applies in both directions. If you store the passenger's slot for several frames, check that it still belongs to the same sprite before using it again. Hitman resets the pairs when it initializes a slot.
+
+To change every pair for the Normal sprite in X, use <code>!Hitman_Base_SetSpriteSlotCollision</code> with the same values in A. The mask applies to vanilla Normal sprite collisions. Manual checks like <code>CheckNormalPair</code> still report whether the boxes overlap. See [[Hitman_Tool_ASM_API#SetSpritePairCollision|SetSpritePairCollision]] and [[Hitman_Tool_ASM_API#SetSpriteSlotCollision|SetSpriteSlotCollision]].
+
+== Configure the Extended sprite tables ==
+
+Edit <code>ASM/ExtendedSpriteTablesConfig.asm</code> inside Hitman Tool. The patch builds these tables when installed. They control how Extended sprites collide with Normal sprites. The macros take an Extended sprite number. During the game, the collision routines take the slot of a particular projectile.
+
+=== Choose the hitbox ===
+
+Use <code>%SetExtendedHitboxSystem(number, mode)</code> to choose where Hitman gets the boxes.
+
+{| class="wikitable"
+! Mode !! What Hitman uses
+|-
+| <code>$00</code> || The Extended sprite is skipped.
+|-
+| <code>$01</code> || A fixed box. Set its X offset, Y offset, width, and height with <code>%SetExtendedHitbox</code>.
+|-
+| <code>$02</code> || One RAM box. Store signed offsets and dimensions in the <code>Low</code> bytes of <code>!HitmanExtendedXOff</code>, <code>!HitmanExtendedYOff</code>, <code>!HitmanExtendedWidth</code>, and <code>!HitmanExtendedHeight</code>.
+|-
+| <code>$03</code> || The current pose's boxes. Store the base context plus pose and the flip as shown above.
+|-
+| <code>$04</code> || One 16-bit RAM box. Write both the <code>Low</code> and <code>High</code> bytes of each offset and dimension.
+|}
+
+Use the Extended sprite's slot when writing its RAM tables. If you change modes, write the new mode's data again because the pose and offsets share some bytes.
+
+=== Choose what happens on impact ===
+
+<code>%SetExtendedFireballEvent</code> sets the response separately from the shape. Choose <code>!HitmanEventFireball</code> for Mario's fireball response, <code>!HitmanEventYoshiFireball</code> for Yoshi's, or <code>$00</code> to handle the impact yourself.
+
+This gives projectile <code>$20</code> a fixed 12 × 16 pixel box and Mario's fireball response.
+
+<pre>
+%SetExtendedHitboxSystem($20, $01)
+%SetExtendedHitbox($20, $0002, $FFFC, $000C, $0010)
+%SetExtendedFireballEvent($20, !HitmanEventFireball)
+</pre>
+
+The box starts 2 pixels right and 4 pixels above the origin. In the projectile's code, put its slot in X and call <code>JSL !Hitman_Base_RunVanillaFireballInteraction</code> with A and the index registers in 8-bit mode. To handle the impact yourself, use event <code>$00</code> and call <code>CheckExtendedNormalPair</code> with the Normal sprite in X and the projectile in Y.
+
+Mario's (<code>$05</code>) and Yoshi's (<code>$11</code>) fireballs are already configured. Other numbers start with mode and event <code>$00</code>. Reinstall Hitman Tool and reinsert the resources that use its defines after changing these settings. See [[Hitman_Tool_ASM_API#Configure Extended sprites|Configure Extended sprites]] for the RAM tables and calling conventions.
+
+== Install the sprite ==
+
+# Add the sprite to the PIXI list.
+# Run Hitman Tool with that list.
+# Run PIXI on the output ROM with the same list.
+# If you use Hitman with UberASMTool, run UberASMTool again on that ROM.

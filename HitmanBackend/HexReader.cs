@@ -3,9 +3,12 @@ using System.Text.RegularExpressions;
 
 namespace HitmanBackend
 {
+    /// <summary>Converts between hexadecimal text and ASM data declarations.</summary>
     public partial class HexReader
     {
+        /// <summary>Reused pattern for extracting hexadecimal literals.</summary>
         private static readonly Regex valueRegex = getValueRegex();
+        /// <summary>Formats values as db, dw, or dl declarations according to the requested digit width.</summary>
         public static string ValuesToString(int[]? arr, int valueSize, int linebreak = 16)
         {
             if (arr == null || arr.Length == 0)
@@ -33,6 +36,7 @@ namespace HitmanBackend
             }
             return sb.ToString();
         }
+        /// <summary>Extracts dollar-prefixed hexadecimal literals and returns their integer values.</summary>
         public static int[] GetValues(string input)
         {
             MatchCollection matches = valueRegex.Matches(input);
@@ -50,7 +54,8 @@ namespace HitmanBackend
             return values;
         }
 
-        [GeneratedRegex("\\$[A-Fa-z0-9]+", RegexOptions.Multiline)]
+        /// <summary>Generates the pattern for hexadecimal literals.</summary>
+        [GeneratedRegex("\\$[A-Fa-f0-9]+", RegexOptions.Multiline)]
         private static partial Regex getValueRegex();
     }
 }

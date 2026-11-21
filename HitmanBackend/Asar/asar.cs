@@ -7,71 +7,92 @@ namespace AsarCLR
     /// </summary>
     public static unsafe class Asar
     {
+        /// <summary>Minimum native API version and expected major version.</summary>
         const int expectedapiversion = 303;
 #pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
 #pragma warning disable CA2101 // Specify marshaling for P/Invoke string arguments
+        /// <summary>Initializes the native library state.</summary>
         [DllImport("asar", EntryPoint = "asar_init", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool asar_init();
 
+        /// <summary>Releases the native library state.</summary>
         [DllImport("asar", EntryPoint = "asar_close", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool asar_close();
 
+        /// <summary>Queries the assembler version.</summary>
         [DllImport("asar", EntryPoint = "asar_version", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern int asar_version();
 
+        /// <summary>Queries the native API version.</summary>
         [DllImport("asar", EntryPoint = "asar_apiversion", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern int asar_apiversion();
 
+        /// <summary>Resets the assembler state.</summary>
         [DllImport("asar", EntryPoint = "asar_reset", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool asar_reset();
 
+        /// <summary>Applies a patch to a ROM buffer using the basic signature.</summary>
         [DllImport("asar", EntryPoint = "asar_patch", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool asar_patch(string patchLocation, byte* romData, int bufLen, int* romLength);
 
+        /// <summary>Applies a patch using the extended parameter block.</summary>
         [DllImport("asar", EntryPoint = "asar_patch_ex", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         [return: MarshalAs(UnmanagedType.I1)]
         private static extern bool asar_patch_ex(ref rawPatchParams parameters);
 
+        /// <summary>Queries the largest ROM buffer supported by Asar.</summary>
         [DllImport("asar", EntryPoint = "asar_maxromsize", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern int asar_maxromsize();
 
+        /// <summary>Obtains the native error buffer and its length.</summary>
         [DllImport("asar", EntryPoint = "asar_geterrors", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern rawAsarError* asar_geterrors(out int length);
 
+        /// <summary>Obtains the native warning buffer and its length.</summary>
         [DllImport("asar", EntryPoint = "asar_getwarnings", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern rawAsarError* asar_getwarnings(out int length);
 
+        /// <summary>Obtains strings emitted by print directives.</summary>
         [DllImport("asar", EntryPoint = "asar_getprints", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern void** asar_getprints(out int length);
 
+        /// <summary>Enumerates the labels resolved by Asar.</summary>
         [DllImport("asar", EntryPoint = "asar_getalllabels", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern rawAsarLabel* asar_getalllabels(out int length);
 
+        /// <summary>Queries the address of a named label.</summary>
         [DllImport("asar", EntryPoint = "asar_getlabelval", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern int asar_getlabelval(string labelName);
 
+        /// <summary>Queries the text of a named define.</summary>
         [DllImport("asar", EntryPoint = "asar_getdefine", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr asar_getdefine(string defineName);
 
+        /// <summary>Enumerates the defines known to Asar.</summary>
         [DllImport("asar", EntryPoint = "asar_getalldefines", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern rawAsarDefine* asar_getalldefines(out int length);
 
+        /// <summary>Expands defines in text using the assembler state.</summary>
         [DllImport("asar", EntryPoint = "asar_resolvedefines", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr asar_resolvedefines(string data, bool learnNew);
 
+        /// <summary>Evaluates an Asar expression and exposes its error if evaluation fails.</summary>
         [DllImport("asar", EntryPoint = "asar_math", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern double asar_math(string math, out IntPtr error);
 
+        /// <summary>Obtains the ranges written to the ROM by the last operation.</summary>
         [DllImport("asar", EntryPoint = "asar_getwrittenblocks", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern rawAsarWrittenBlock* asar_getwrittenblocks(out int length);
 
+        /// <summary>Returns the mapper selected by Asar.</summary>
         [DllImport("asar", EntryPoint = "asar_getmapper", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern MapperType asar_getmapper();
 
+        /// <summary>Generates symbol text in the requested format.</summary>
         [DllImport("asar", EntryPoint = "asar_getsymbolsfile", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr asar_getsymbolsfile(string format);
 #pragma warning restore CA2101 // Specify marshaling for P/Invoke string arguments
@@ -134,21 +155,34 @@ namespace AsarCLR
         public static bool Reset()
             => asar_reset();
 
+        /// <summary>Native patch parameter layout passed to Asar through P/Invoke.</summary>
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
         private struct rawPatchParams
         {
+            /// <summary>Size of the parameter layout in bytes.</summary>
             public int StructSize;
+            /// <summary>Path of the ASM patch.</summary>
             public string PatchLoc;
+            /// <summary>Pointer to the writable ROM buffer.</summary>
             public byte* RomData;
+            /// <summary>Total ROM buffer capacity.</summary>
             public int BufLen;
+            /// <summary>Pointer to the effective ROM length, which Asar can update.</summary>
             public int* RomLen;
+            /// <summary>Pointers to include search paths.</summary>
             public byte** IncludePaths;
+            /// <summary>Number of include search paths.</summary>
             public int NumIncludePaths;
+            /// <summary>Whether Asar should discard its state before assembling.</summary>
             [MarshalAs(UnmanagedType.I1)]
             public bool ShouldReset;
+            /// <summary>Pointer to extra defines passed to the assembler.</summary>
             public rawAsarDefine* AdditionalDefines;
+            /// <summary>Number of extra defines.</summary>
             public int AdditionalDefineCount;
+            /// <summary>Configuration file for standard include paths.</summary>
             public string STDIncludesFile;
+            /// <summary>Configuration file for standard defines.</summary>
             public string STDDefinesFile;
         };
 
@@ -160,7 +194,7 @@ namespace AsarCLR
         /// <param name="includePaths">lists additional include paths</param>
         /// <param name="shouldReset">specifies whether asar should clear out all defines, labels,
         /// etc from the last inserted file. Setting it to False will make Asar act like the
-        //  currently patched file was directly appended to the previous one.</param>
+        /// currently patched file was directly appended to the previous one.</param>
         /// <param name="additionalDefines">specifies extra defines to give to the patch</param>
         /// <param name="stdIncludeFile">path to a file that specifes additional include paths</param>
         /// <param name="stdDefineFile">path to a file that specifes additional defines</param>
@@ -259,19 +293,29 @@ namespace AsarCLR
         public static int MaxRomSize()
             => asar_maxromsize();
 
+        /// <summary>Native diagnostic layout containing string pointers.</summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct rawAsarError
         {
+            /// <summary>Diagnostic with its location and context.</summary>
             public IntPtr FullErrData;
+            /// <summary>Base text of the diagnostic.</summary>
             public IntPtr RawErrData;
+            /// <summary>ASM snippet associated with the diagnostic.</summary>
             public IntPtr Block;
+            /// <summary>File where the diagnostic originated.</summary>
             public IntPtr Filename;
+            /// <summary>Line where the diagnostic originated.</summary>
             public int Line;
+            /// <summary>File that invoked the code that produced the diagnostic.</summary>
             public IntPtr CallerFileName;
+            /// <summary>Caller line associated with the diagnostic.</summary>
             public int CallerLine;
+            /// <summary>Numeric diagnostic identifier.</summary>
             public int ErrID;
         };
 
+        /// <summary>Copies native diagnostics into managed objects while their pointers remain valid.</summary>
         private static Asarerror[] cleanErrors(rawAsarError* ptr, int length)
         {
             Asarerror[] output = new Asarerror[length];
@@ -332,10 +376,13 @@ namespace AsarCLR
             return output;
         }
 
+        /// <summary>Native label entry with a name pointer and address.</summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct rawAsarLabel
         {
+            /// <summary>Name of the label or define.</summary>
             public IntPtr Name;
+            /// <summary>SNES address of the label.</summary>
             public int Location;
         }
 
@@ -375,10 +422,13 @@ namespace AsarCLR
         public static string? GetDefine(string defineName)
             => Marshal.PtrToStringAnsi(asar_getdefine(defineName));
 
+        /// <summary>Native define entry with name and value pointers.</summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct rawAsarDefine
         {
+            /// <summary>Name of the label or define.</summary>
             public IntPtr Name;
+            /// <summary>Text associated with the define.</summary>
             public IntPtr Contents;
         }
         /// <summary>
@@ -424,14 +474,19 @@ namespace AsarCLR
         }
 
 
+        /// <summary>Range of bytes written by Asar in PC and SNES coordinates.</summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct rawAsarWrittenBlock
         {
+            /// <summary>Offset of the block in the ROM file.</summary>
             public int PCOffset;
+            /// <summary>SNES address corresponding to the block.</summary>
             public int SNESOffset;
+            /// <summary>Length of the modified block in bytes.</summary>
             public int NumBytes;
         };
 
+        /// <summary>Copies native write ranges into a managed array.</summary>
         private static Asarwrittenblock[] cleanWrittenBlocks(rawAsarWrittenBlock* ptr, int length)
         {
             Asarwrittenblock[] output = new Asarwrittenblock[length];
@@ -479,13 +534,21 @@ namespace AsarCLR
     /// </summary>
     public struct Asarerror
     {
+        /// <summary>Full diagnostic with its location and context.</summary>
         public string Fullerrdata;
+        /// <summary>Base text of the diagnostic.</summary>
         public string Rawerrdata;
+        /// <summary>ASM snippet associated with the diagnostic.</summary>
         public string Block;
+        /// <summary>File where the diagnostic originated.</summary>
         public string Filename;
+        /// <summary>Line where the diagnostic originated.</summary>
         public int Line;
+        /// <summary>File that invoked the code that produced the diagnostic.</summary>
         public string Callerfilename;
+        /// <summary>Caller line associated with the diagnostic.</summary>
         public int Callerline;
+        /// <summary>Numeric diagnostic identifier.</summary>
         public int ErrorId;
     }
 
@@ -494,7 +557,9 @@ namespace AsarCLR
     /// </summary>
     public struct Asarlabel
     {
+        /// <summary>Name of the label or define.</summary>
         public string Name;
+        /// <summary>SNES address of the label.</summary>
         public int Location;
     }
 
@@ -503,7 +568,9 @@ namespace AsarCLR
     /// </summary>
     public struct Asardefine
     {
+        /// <summary>Name of the label or define.</summary>
         public string Name;
+        /// <summary>Text associated with the define.</summary>
         public string Contents;
     }
 
@@ -512,8 +579,11 @@ namespace AsarCLR
     /// </summary>
     public struct Asarwrittenblock
     {
+        /// <summary>Offset of the block in the ROM file.</summary>
         public int Pcoffset;
+        /// <summary>SNES address corresponding to the block.</summary>
         public int Snesoffset;
+        /// <summary>Length of the modified block in bytes.</summary>
         public int Numbytes;
     }
 

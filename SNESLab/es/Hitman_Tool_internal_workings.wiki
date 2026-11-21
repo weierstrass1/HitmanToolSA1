@@ -1,0 +1,117 @@
+{{Select Language|Hitman_Tool_internal_workings}}
+
+Cuando una bola de fuego choca con un sprite, Hitman necesita saber qué cajas comparar y cómo debe reaccionar el sprite. Esa información sale de los archivos que preparaste al instalar el parche. Una hitbox es un rectángulo invisible que el juego usa para decidir si dos objetos chocan. Una pose es uno de los cuadros de la animación del sprite. Cada pose puede tener sus propias hitboxes. Un callback es una rutina que tú eliges para que Hitman la ejecute cuando ocurre algo, como el choque de una caja con Mario.
+
+== Cómo se prepara la ROM ==
+
+# Hitman usa la lista de PIXI para encontrar los sprites del proyecto. Si le diste una lista de UberASMTool, también busca allí los códigos del proyecto. Lee las indicaciones que enlazan cada recurso con sus archivos de hitboxes (<code>;#inchbi</code>) o propiedades (<code>;#inchmprop</code>). También busca archivos en sus propias carpetas.
+# Hitman lee los archivos para saber qué hitboxes usa cada pose, qué callbacks tiene cada caja y con qué valores se inicializan las propiedades de cada sprite.
+# Con esa información, Hitman prepara las tablas que el juego podrá leer en la ROM. También reúne el código de las rutinas y callbacks que va a instalar.
+# Asar instala el parche en una copia temporal de la ROM de entrada. Cuando termina correctamente, Hitman publica la ROM de salida y las definiciones que usarán PIXI y UberASMTool.
+
+Después ejecutas PIXI y UberASMTool sobre la ROM de salida. El número de la lista identifica el tipo de sprite, por ejemplo un enemigo concreto. Si colocas dos enemigos de ese tipo en el nivel, cada uno ocupa su propio slot, es decir, su propio lugar en las tablas que usa el juego para seguir a los sprites activos.
+
+== Qué partes del juego modifica Hitman ==
+
+Un ''hijack'' es un cambio en una dirección de la ROM que desvía el código del juego hacia una rutina del parche. Cuando Mario dispara, por ejemplo, el juego llega a su comprobación de impacto habitual y, desde ahí, entra a Hitman para decidir qué caja usar y qué hacer si el proyectil choca con un Normal sprite.
+
+{| class="wikitable"
+! Dirección de SMW !! Qué cambia en el juego
+|-
+| <code>$07F7D2</code> || Al preparar el slot de un Normal sprite, carga sus propiedades de Hitman y restablece sus parejas de colisión. Después ejecuta los pasos de inicialización de SMW.
+|-
+| <code>$01A411</code> || Cambia la comprobación entre Normal sprites. El recorrido conserva filtros del juego como el estado del sprite y añade la máscara de parejas y las hitboxes configuradas. También decide qué hacer cuando se encuentran dos sprites o un caparazón golpea a otro.
+|-
+| <code>$02A0AC</code> || Cambia cómo las bolas de fuego de Mario y Yoshi comprueban impactos contra Normal sprites. La caja del proyectil y el evento dependen del número del Extended sprite. El choque del proyectil con los bloques del nivel va por otro camino.
+|-
+| <code>$028139</code> || Cambia cómo un Normal sprite que explota comprueba si alcanza a otros Normal sprites. Hitman compara las cajas de la pareja antes de resolver el impacto de la explosión.
+|-
+| <code>$0293AE</code> || Cambia cómo un Quake sprite busca a los Normal sprites a los que puede afectar. El temporizador del Quake sprite y la respuesta al impacto se manejan en pasos separados.
+|-
+| <code>$0294C1</code> || Cambia qué sprites reciben el efecto del cape dive al caer Mario al suelo. Este recorrido busca sprites apoyados en el suelo y aplica filtros de estado.
+|-
+| <code>$019F74</code> || Permite saltar el dibujo auxiliar de un sprite cargado por Mario mediante <code>SkipVanillaCarriedDraw</code>. El sprite conserva la lógica del estado cargado y puede dibujarse con su propio código.
+|}
+
+Las direcciones de la tabla son las de SMW antes de aplicar el ajuste <code>|!rom</code> del parche. La entrada de inicialización también deja junto a ella, en <code>$07F7D6</code>, el puntero que permite a PIXI y UberASMTool encontrar las rutinas instaladas.
+
+=== Por qué Hitman incluye sus propias rutinas de spawn ===
+
+Crear un sprite significa ocupar un slot libre. Ese slot pudo haber pertenecido a otro sprite con propiedades distintas o con el choque bloqueado frente a un compañero. Si el código de spawn se salta la inicialización de Hitman, la nueva instancia puede quedarse con esos valores.
+
+Por eso la instalación copia a PIXI las versiones de Hitman de <code>Spawn/Sprite.asm</code> y <code>Spawn/SpriteSafe.asm</code>. Ambas buscan un slot libre y pasan el número y el tipo del nuevo sprite a la inicialización de <code>$07F7D2</code>. Para un sprite custom, preparan primero el número custom y su marca, de modo que Hitman pueda encontrar los valores del sprite correcto.
+
+El código de <code>$07F7D2</code> copia a RAM los valores de ese tipo de sprite, vuelve a permitir sus parejas de colisión y ejecuta las rutinas de inicialización del juego. Conserva los parámetros de posición y velocidad que necesita el spawn. En la rama custom, las rutinas de spawn también guardan esos parámetros mientras PIXI carga sus datos. Después marcan el slot para que el sprite pase por INIT y lo colocan con la posición y la velocidad pedidas.
+
+Por ejemplo, si un pasajero tenía bloqueado el choque con el sprite que lo cargaba, ese bloqueo se borra cuando otro sprite ocupa su slot. La rutina de spawn devuelve el nuevo slot en Y y Carry en 0. Si el recorrido no encuentra un slot libre, devuelve Y en <code>$FF</code> y Carry en 1. Consulta [[es/Hitman_Tool_ASM_API#Crear sprites con PIXI|Crear sprites con PIXI]] para preparar la llamada.
+
+== Cómo se guardan las hitboxes ==
+
+Hitman guarda por separado la forma de cada caja, sus acciones y las cajas de cada pose. Así puede reutilizar una caja de 16 × 16 píxeles en dos poses e incluso asignarle un callback distinto en cada una.
+
+{| class="wikitable"
+! Dato compartido !! Cuándo se puede reutilizar
+|-
+| Geometría || Coinciden el ancho, el alto y los desplazamientos normales y espejados.
+|-
+| Perfil de acciones || Coinciden las acciones asociadas a la caja, incluidas las que resultan de la herencia.
+|-
+| Lista de una pose || Las dos poses usan las mismas cajas en el mismo orden, con las mismas acciones y los mismos identificadores de caja para sus callbacks.
+|}
+
+=== De un contexto a la lista de cajas ===
+
+Imagina que las poses de tu sprite empiezan en la entrada 40 de las tablas de Hitman. La pose 0 está en la entrada 40 y la pose 2 en la 42. A ese índice inicial le llamamos contexto base. El define <code>!MiSpriteHitboxContext</code> guarda ese número para que puedas sumar la pose actual sin tener que averiguar en qué entrada empieza tu sprite.
+
+<pre>
+Contexto base + pose
+    → ContextPosesHitboxes
+    → PoseHitboxesIndexers
+    → lista en PoseHitboxes
+</pre>
+
+<code>PoseHitboxes</code> contiene desplazamientos a las entradas de geometría. Cada entrada ocupa dos bytes y <code>$FFFF</code> indica el final de la lista. En paralelo, <code>PoseHitboxProfiles</code> indica qué perfil de acciones corresponde a cada entrada. <code>PoseHitboxCallbackIds</code> conserva el ID histórico que recibe el callback en Y.
+
+Al comparar una caja, Hitman usa su perfil de acciones para encontrar en <code>HitboxActions</code> la dirección de la rutina que debe ejecutar. Cada dirección ocupa tres bytes. Las tablas de geometría y sus índices deben caber en un mismo banco de ROM. Hitman comprueba el tamaño al crearlas y Asar comprueba dónde quedaron al instalarlas.
+
+== Qué se guarda en RAM ==
+
+En la RAM se guarda lo que puede cambiar durante el juego. Un sprite con varias poses guarda cuál está usando y si está volteado. Un sprite con una caja ajustable guarda su tamaño y su posición respecto al origen del sprite. Algunos de esos datos ocupan los mismos bytes, así que al cambiar de modo debes escribir los valores del modo nuevo.
+
+Las propiedades de los Normal sprites funcionan de otra forma. Hitman genera una tabla ROM de 256 entradas para vanilla y otra para custom por cada propiedad. Al inicializar un slot, el parche busca el número del sprite, lee el valor que le corresponde y lo copia a la tabla RAM de la propiedad. Por eso dos instancias del mismo tipo empiezan con el mismo valor pero pueden cambiarlo por separado.
+
+La máscara de parejas usa un bit por cada par de slots normales. Al reutilizar un slot, el parche vuelve a permitir sus parejas. Esto evita que un sprite recién creado herede el bloqueo de una pareja anterior. Para encontrar el bit, Hitman usa el mayor de los dos números de slot para elegir una fila. El menor indica qué bit de esa fila corresponde a la pareja. Cada fila empieza en un byte nuevo. La tabla ocupa 14 bytes en LoROM (12 slots) y 39 bytes en SA-1 (22 slots).
+
+HB1, HB2 y el resultado de los callbacks viven en memoria temporal. Por ejemplo, si vas a conservar el borde de una caja para usarlo después, cópialo antes de hacer otra consulta. Para cambiar el bloque de RAM persistente, consulta [[es/Hitman_Tool_ASM_API#Reubicar la RAM de Hitman|Reubicar la RAM de Hitman]].
+
+== Cómo se comprueba un choque ==
+
+=== Preparar los dos rectángulos ===
+
+Hitman calcula los bordes izquierdo, superior, derecho e inferior de cada caja. Para cada caja de la pose, suma su desplazamiento a la posición del objeto. Si el sprite está volteado, usa el desplazamiento que corresponde a esa orientación. Añade el ancho y el alto para obtener los bordes derecho e inferior. Las rutinas de clipping convierten la caja vanilla al mismo formato que usa Hitman.
+
+Hitman guarda temporalmente ambos rectángulos con los nombres HB1 y HB2. Por ejemplo, HB1 puede ser una caja del sprite y HB2 la caja de Mario. Si la caja del sprite termina antes de que empiece la de Mario en cualquiera de los dos ejes, no chocan. Si los bordes llegan a encontrarse, Hitman cuenta el choque.
+
+=== Recorrer las cajas y ejecutar callbacks ===
+
+Una comprobación sin callbacks puede terminar en cuanto encuentra una caja que choca. Si la llamada usa callbacks, Hitman comprueba todas las cajas en el orden de la pose. Cada caja puede ejecutar su propia rutina. Por ejemplo, una caja en la parte superior puede servir de plataforma y otra en el costado puede impedir que Mario atraviese el sprite.
+
+Antes del recorrido, Hitman limpia <code>!HitmanDefault</code>. Los callbacks pueden añadir bits y el código que inició la comprobación decide qué hacer con ellos. En este recorrido, Carry queda en 1 si el resultado acumulado es distinto de cero. En una consulta geométrica, Carry queda en 1 si hubo choque. Por ejemplo, una caja que choca con Mario y usa <code>Nothing</code> puede dejar el resultado acumulado en cero.
+
+== Cómo se resuelve una interacción vanilla ==
+
+El parche conecta Hitman con las rutinas del juego para los choques entre Normal sprites, los impactos de bolas de fuego, las explosiones, los Quake sprites y el cape dive. Antes de comparar las hitboxes, Hitman decide si debe comprobar a esos sprites. Por ejemplo, puede saltarse un sprite inactivo o una pareja cuyo choque bloqueaste con la máscara de colisión.
+
+Cuando se detecta un impacto, la máscara <code>VanillaResponseMask</code> del receptor indica si se aplica la respuesta del juego. <code>VanillaEventMask</code> habilita el aviso. El bit se acumula en <code>ActionFlag</code> y, si existe un callback configurado, se llama después de la respuesta. Puedes desactivar la respuesta vanilla de una bola de fuego y seguir recibiendo el aviso para aplicar tu propia reacción.
+
+Si una bola de fuego activa un callback vanilla, A indica el tipo de impacto, X identifica al sprite que recibió el golpe y Y identifica a la bola de fuego. En un callback de hitbox, en cambio, Y identifica la caja. La [[es/Hitman_Tool_ASM_API#Flags y callbacks de eventos|tabla de eventos de la API]] muestra qué recibe cada callback.
+
+=== Qué cambia para los proyectiles ===
+
+El recorrido de bolas de fuego selecciona la geometría y el evento por número de Extended sprite. Puedes cambiar la forma del proyectil y conservar la respuesta de una bola de fuego de Mario. También puede usar sus cajas para una consulta manual y decidir por código qué hacer al chocar.
+
+== Cómo encuentran las rutinas PIXI y UberASMTool ==
+
+La ROM guarda en <code>$07F7D6</code> un puntero a <code>RoutinesTable</code>. Esa tabla contiene las direcciones de las rutinas base y los callbacks incluidos en la instalación. Al ensamblar un recurso, <code>HitmanDefines.asm</code> lee esa tabla en la ROM y resuelve los símbolos <code>!Hitman_Base_*</code> y <code>!Hitman_Callback_*</code>.
+
+Si añades un callback o una rutina base, pueden cambiar las entradas de la tabla. Ejecuta Hitman primero y vuelve a ensamblar con PIXI y UberASMTool los recursos que usan los defines. Así sus llamadas apuntarán a las rutinas de la nueva instalación.

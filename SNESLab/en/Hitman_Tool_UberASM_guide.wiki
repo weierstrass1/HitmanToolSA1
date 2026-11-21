@@ -1,0 +1,109 @@
+{{Select Language|Hitman_Tool_UberASM_guide}}
+
+With [[Hitman_Tool|Hitman Tool]], a level script in UberASM can check whether an object collides with Mario without using a sprite slot.
+
+== Set up UberASMTool ==
+
+After configuring PIXI in the Hitman Tool menu, enter the UberASMTool folder. Enter its list too if your UberASM code links any <code>.hitboxinfo</code> files. If the code only calls Hitman routines, you can leave the list blank. Hitman Tool links <code>HitmanDefines.asm</code> from UberASMTool's macro library.
+
+Run <code>ht</code> without <code>-use-settings</code> to change the saved configuration. See the [[Hitman_Tool_Quick_Start|Quick Start]] for the installation steps.
+
+== Check if an object collides with Mario ==
+
+For an object with one box, store its position in FreeRAM and set its width and height in the ASM. <code>PlayerClippingRoutine</code> loads Mario's hitbox for you.
+
+Reserve four bytes at an address that is free in your project and define <code>!FreeRAM_ObjetoNivel</code> with that address. Use two bytes for X and two for Y. Set the coordinates when the level loads and update them when the object moves.
+
+<pre>
+!ObjetoX = !FreeRAM_ObjetoNivel
+!ObjetoY = !FreeRAM_ObjetoNivel+2
+!ObjetoAncho = $0010
+!ObjetoAlto = $0010
+
+main:
+    ; A and indices are 8-bit. Use the game's direct page.
+    JSL !Hitman_Base_PlayerClippingRoutine  ; Load Mario's box into HB2.
+
+    REP #$21
+    LDA !ObjetoX
+    ADC.w #$0100
+    STA !HitmanHB1Left
+    CLC
+    ADC.w #!ObjetoAncho
+    STA !HitmanHB1Right
+
+    LDA !ObjetoY
+    CLC
+    ADC.w #$0100
+    STA !HitmanHB1Top
+    CLC
+    ADC.w #!ObjetoAlto
+    STA !HitmanHB1Bottom
+
+    SEP #$20
+    JSL !Hitman_Base_CheckContact
+    BCC .SinChoque
+    ; Handle the collision with Mario here.
+.SinChoque
+    RTL
+</pre>
+
+<code>PlayerClippingRoutine</code> leaves Mario's box in HB2 using Hitman's coordinate system. Add <code>$0100</code> to the object's coordinates when preparing HB1. <code>CheckContact</code> compares the boxes and sets Carry if they collide. For this example, configuring the UberASMTool folder is enough. See [[Hitman_Tool_ASM_API#Prepare and compare boxes|Prepare and compare boxes]].
+
+== Use several hitboxes in one pose ==
+
+Suppose your object has a base and a moving arm. Save this as <code>ObjetoNivel.hitboxinfo</code> next to the level ASM. Pose 0 uses just the base. Pose 1 uses both boxes.
+
+<pre>
+HitboxesPerPose:
+    .Pose0 0
+    .Pose1 0,1
+
+Hitbox0:
+    .Width $10
+    .Height $10
+
+Hitbox1:
+    .XOffset $10
+    .YOffset $04
+    .Width $10
+    .Height $08
+</pre>
+
+Add <code>;#inchbi "ObjetoNivel.hitboxinfo"</code> to the main ASM file and give Hitman the UberASMTool list so it can find the file. Keep the <code>!ObjetoX</code> and <code>!ObjetoY</code> defines from the previous example and use this <code>main</code>. Mario's box still goes in HB2. Hitman works out the object's boxes from its position and pose.
+
+<pre>
+main:
+    ; A and indices are 8-bit. Use the game's direct page.
+    JSL !Hitman_Base_PlayerClippingRoutine
+    STZ !HitmanSprite1Flip
+
+    REP #$21
+    LDA !ObjetoX
+    ADC.w #$0100
+    STA !HitmanSprite1X
+    LDA !ObjetoY
+    CLC
+    ADC.w #$0100
+    STA !HitmanSprite1Y
+
+    LDA.w #!ObjetoNivelHitboxContext+1
+    JSL !Hitman_Base_ProcessHitBoxesWithoutCallback
+    BCC .SinChoque
+    ; Mario collided with the base or the arm.
+.SinChoque
+    RTL
+</pre>
+
+The call checks pose 1 and leaves the first box that collided in HB1. If the object changes poses, keep the current pose index in FreeRAM and add it to the base context instead of adding <code>1</code>. See [[Hitman_Tool_ASM_API#ProcessHitBoxesWithoutCallback|ProcessHitBoxesWithoutCallback]].
+
+== Check two sprites already in the level ==
+
+If your UberASM code already knows the slots of two Normal sprites, put one in X and the other in Y. Call <code>JSL !Hitman_Base_CheckNormalPair</code> with A and the index registers in 8-bit mode. Hitman uses the configured hitboxes for both and sets Carry if they collide. If one is an Extended sprite, call <code>CheckExtendedNormalPair</code> with the Normal sprite in X and the Extended sprite in Y. See [[Hitman_Tool_ASM_API#Manual interaction routines|Manual interaction routines]].
+
+== Install the code ==
+
+# Add the level ASM to the UberASMTool list.
+# Run Hitman Tool.
+# If your project uses PIXI sprites with Hitman, run PIXI again on the output ROM.
+# Run UberASMTool on that same ROM.

@@ -1,0 +1,36 @@
+{{Select Language|Hitman_Tool}}
+
+'''Hitman Tool''' es una herramienta creada por anonimzwx para facilitar el manejo de colisiones e interacciones en ''Super Mario World''. Permite configurar las interacciones del juego original (vanilla) y crear respuestas propias para sprites custom.
+
+== Funcionalidades ==
+
+* '''Hitboxes configurables.''' Un sprite custom puede usar la caja de colisión del juego original, una sola caja cuyo tamaño y posición se ajustan desde el código, o varias cajas por pose.
+* '''Callbacks por hitbox.''' En las interacciones con Mario, puedes asignar una rutina a cada caja para actuar cuando hay contacto y otra para cuando no lo hay.
+* '''Interacciones vanilla configurables.''' Puedes consultar flags para saber qué interacción recibió un sprite o asignar callbacks para responder a ella. Entre los eventos disponibles están las bolas de fuego de Mario y Yoshi, las explosiones, los ''quake sprites'' y el contacto entre sprites. Por ejemplo, un enemigo puede reaccionar al impacto de un caparazón o cambiar de dirección al encontrarse con otro sprite.
+* '''Colisiones con sprites extendidos.''' Un proyectil custom puede usar hitboxes personalizadas para comprobar si toca a Mario o a un sprite normal y decidir cómo reaccionar.
+* '''Propiedades personalizadas.''' Puedes añadir propiedades a sprites normales, tanto vanilla como custom. Por ejemplo, una propiedad puede indicar si un sprite es grande o pequeño. Otros sprites pueden leerla y reaccionar de forma distinta según su tamaño.
+* '''Rutinas de colisión reutilizables.''' Hitman Tool incluye rutinas para preparar cajas de colisión, comprobar si se tocan y aplicar respuestas como el rebote.
+
+== Quick Start ==
+
+'''Guía rápida de instalación:''' [[es/Hitman_Tool_Quick_Start|Quick Start]]
+
+== Archivos y Formatos ==
+
+[[es/Hitman_Tool_files_and_formats|Archivos y formatos de Hitman Tool]]
+
+== Hitman Tool y Sprites ==
+
+[[es/Hitman_Tool_sprite_guide|Usar Hitman Tool con sprites]]
+
+== Hitman Tool en UberASM ==
+
+[[es/Hitman_Tool_UberASM_guide|Usar Hitman Tool con UberASM]]
+
+== API ==
+
+[[es/Hitman_Tool_ASM_API|Referencia de la API ASM de Hitman Tool]]
+
+== Funcionamiento Interno del Tool ==
+
+[[es/Hitman_Tool_internal_workings|Funcionamiento interno de Hitman Tool]]

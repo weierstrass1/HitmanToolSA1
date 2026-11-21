@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x86</Platforms>
@@ -9,12 +9,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="ASM\**\*.asm;Patch\**\*.asm;Routines\**\*.asm;PixiRoutines\**\*.asm;CustomProperties\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <ProjectReference Include="..\LogRegister\LogRegister.csproj" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="asar.dll">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <None Update="Asar\asar;Asar\asar.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <None Update="ASM\HitmanDefines.asm">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -43,7 +48,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Patch\NewFolder\" />
+    <ProjectReference Include="..\HitmanFormatReader\HitmanFormatReader.csproj" />
   </ItemGroup>
 
 </Project>

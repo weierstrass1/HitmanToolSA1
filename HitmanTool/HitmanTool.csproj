@@ -1,8 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <ApplicationIcon>Assets/HitmanTool.ico</ApplicationIcon>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>AnyCPU;x86</Platforms>
@@ -10,6 +12,56 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HitmanBackend\HitmanBackend.csproj" />
+    <Content Include="README.html">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </Content>
+    <Content Include="Logging\LogMessages.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup Condition="'$(UseAppHost)' == 'true'">
+    <RunCommand>$(TargetDir)ht$(_NativeExecutableExtension)</RunCommand>
+  </PropertyGroup>
+
+  <!-- Keep the managed assembly name and rename only the native launcher. -->
+  <Target Name="NameHitmanAppHost" AfterTargets="_ComputeNETCoreBuildOutputFiles"
+          Condition="'$(AppHostIntermediatePath)' != ''">
+    <ItemGroup>
+      <None Update="$(AppHostIntermediatePath)">
+        <Link>ht$(_NativeExecutableExtension)</Link>
+      </None>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="NamePublishedHitmanAppHost" AfterTargets="ComputeFilesToPublish"
+          Condition="'$(UseAppHost)' == 'true' and '$(PublishSingleFile)' != 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+          Condition="'%(ResolvedFileToPublish.RelativePath)' == '$(AssemblyName)$(_NativeExecutableExtension)'">
+        <RelativePath>ht$(_NativeExecutableExtension)</RelativePath>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
+  <!-- Single-file publishing resolves its launcher before copying publish files. -->
+  <Target Name="NameHitmanBundle" AfterTargets="_ComputeFilesToBundle"
+          Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <_FilesToBundle Update="@(_FilesToBundle)"
+          Condition="'%(_FilesToBundle.RelativePath)' == '$(PublishedSingleFileName)'">
+        <RelativePath>ht$(_NativeExecutableExtension)</RelativePath>
+      </_FilesToBundle>
+    </ItemGroup>
+    <PropertyGroup>
+      <PublishedSingleFileName>ht$(_NativeExecutableExtension)</PublishedSingleFileName>
+      <PublishedSingleFilePath>$(PublishDir)$(PublishedSingleFileName)</PublishedSingleFilePath>
+    </PropertyGroup>
+  </Target>
 
 </Project>

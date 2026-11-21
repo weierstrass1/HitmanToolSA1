@@ -1,0 +1,67 @@
+{{Select Language|Hitman_Tool_Quick_Start}}
+
+Esta guía explica cómo instalar [[es/Hitman_Tool|Hitman Tool]] en Windows o Linux.
+
+== Requisitos ==
+
+Instala el [https://dotnet.microsoft.com/download/dotnet/8.0 runtime de .NET 8] para tu sistema operativo. Con el runtime basta.
+
+Descarga Hitman Tool desde [https://snestorage.dev/Resource/16 SNEStorage] y extrae el paquete completo.
+
+== Preparar los recursos ==
+
+=== Sprites para PIXI ===
+
+Copia el paquete de cada sprite a la carpeta de PIXI que le corresponda. Mantén los archivos y subcarpetas del paquete en su sitio.
+
+* <code>sprites/</code> para sprites normales.
+* <code>cluster/</code> para cluster sprites.
+* <code>extended/</code> para sprites extendidos.
+
+Luego añade el sprite a la lista de PIXI. Si el ASM del sprite ya enlaza archivos mediante <code>;#inchbi</code> o <code>;#inchmprop</code>, conserva esos archivos en las rutas que indica el ASM.
+
+=== Recursos para UberASMTool ===
+
+Si usas UberASMTool, copia cada recurso a la carpeta que corresponda (<code>level/</code>, <code>overworld/</code> o <code>gamemode/</code>, por ejemplo) y añádelo a su lista. Si el ASM enlaza un archivo <code>.hitboxinfo</code> con <code>;#inchbi</code>, conserva la ruta indicada en el recurso.
+
+=== Carpetas tradicionales ===
+
+Si el recurso indica que debes colocar archivos en la carpeta de Hitman Tool, usa estas rutas.
+
+{| class="wikitable"
+! Archivo !! Carpeta
+|-
+| Archivo <code>.hitboxinfo</code> || <code>HitboxInfo/</code>
+|-
+| JSON de propiedades de un sprite || <code>CustomProperties/PerSprite/</code>
+|}
+
+== Instalar Hitman Tool ==
+
+Crea una copia de la ROM de tu proyecto para usarla como salida. El archivo de salida debe existir antes de ejecutar la herramienta.
+
+Abre una terminal en la carpeta de Hitman Tool y ejecuta <code>.\ht.exe</code> en Windows o <code>./ht</code> en Linux. La herramienta te pedirá estas rutas.
+
+{| class="wikitable"
+! Pregunta !! Ejemplo
+|-
+| ROM de entrada || <code>C:\MiHack\MiHack.smc</code>
+|-
+| ROM de salida || <code>C:\MiHack\MiHack_Hitman.smc</code>
+|-
+| Carpeta de PIXI || <code>C:\MiHack\PIXI</code>
+|-
+| Lista de PIXI || <code>C:\MiHack\PIXI\list.txt</code>
+|-
+| Carpeta de UberASMTool (opcional) || <code>C:\MiHack\UberASMTool</code>. Pulsa Enter para omitir la integración.
+|-
+| Lista de UberASMTool (si indicaste la carpeta) || <code>list.txt</code> si está dentro de esa carpeta. Pulsa Enter para instalar solo las definiciones de Hitman Tool.
+|}
+
+Las rutas se guardan en <code>Json/Settings.json</code>. Para repetir la instalación con las rutas guardadas, añade <code>-use-settings</code> al comando. Para cambiar o desactivar la integración, ejecuta la herramienta sin ese argumento y responde de nuevo a las preguntas.
+
+== Finalizar la instalación ==
+
+Ejecuta PIXI sobre la ROM de salida con la misma lista de sprites. Si configuraste UberASMTool, ejecútalo también sobre esa ROM.
+
+Si cambias los archivos de hitboxes o las propiedades que lee Hitman Tool, vuelve a ejecutar Hitman Tool antes de ejecutar PIXI y, si lo usas, UberASMTool.

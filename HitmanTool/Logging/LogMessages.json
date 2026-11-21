@@ -1,0 +1,18 @@
+{
+  "TITLE": "\n============ {title} ============\n",
+  "INFO": "{message}",
+  "OK": "{message}",
+  "WARNING": "{message}",
+  "ERROR": "{message}",
+  "READ_PIXI_LIST": "Reading PIXI list: {file}",
+  "READ_HITBOXES": "Reading hitboxes: {file}",
+  "HITBOX_COUNTS": "{sprite}: {poses} poses, {hitboxes} hitboxes.",
+  "GENERATING_TABLES": "Generating tables from {contexts} hitbox contexts.",
+  "PROCESS_PROPERTY": "Processing property {property}.",
+  "SPRITE_PROPERTY": "Sprite {slot}-{sprite}: {property} = {value}",
+  "HITBOX_CALLBACK": "{context} · {box} · {field} = {routine}",
+  "ROUTINE_DEPENDENCIES": "{routine} · dependencies detected = {dependencies}",
+  "ROUTINE_TOTAL": "{count} unique callback and dependency routines selected for generation.",
+  "ROUTINES_INSTALLED": "{count} callback and dependency routines installed.",
+  "APPLY_PATCH": "Applying {file} with Asar."
+}

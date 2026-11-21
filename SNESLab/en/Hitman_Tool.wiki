@@ -1,0 +1,36 @@
+{{Select Language|Hitman_Tool}}
+
+'''Hitman Tool''' is a tool by anonimzwx for handling collisions and interactions in ''Super Mario World''. It lets you configure interactions from the original game (vanilla) and write custom responses for your sprites.
+
+== Features ==
+
+* '''Configurable hitboxes.''' A custom sprite can use the original game's clipping, a single box whose size and position are set in code, or several boxes per pose.
+* '''Per-hitbox callbacks.''' For interactions with Mario, each box can run one routine when it collides and another when it does not.
+* '''Configurable vanilla interactions.''' Read flags to see what hit a sprite or assign callbacks to respond immediately. Supported events include Mario and Yoshi fireballs, explosions, Quake sprites, and collisions between sprites. An enemy can react to a shell hit or turn around when it runs into another sprite.
+* '''Extended sprite collisions.''' A custom projectile can use its own hitboxes to check for collisions with Mario or a Normal sprite.
+* '''Custom properties.''' Add properties to Normal sprites, both vanilla and custom. For example, other sprites can read a property that says whether an enemy is large or small and respond accordingly.
+* '''Reusable collision routines.''' Hitman includes routines that prepare hitboxes, check for collisions, and handle responses such as bouncing.
+
+== Quick Start ==
+
+[[Hitman_Tool_Quick_Start|Quick Start]]
+
+== Files and Formats ==
+
+[[Hitman_Tool_files_and_formats|Hitman Tool files and formats]]
+
+== Hitman Tool and Sprites ==
+
+[[Hitman_Tool_sprite_guide|Using Hitman Tool with sprites]]
+
+== Hitman Tool with UberASM ==
+
+[[Hitman_Tool_UberASM_guide|Using Hitman Tool with UberASM]]
+
+== API ==
+
+[[Hitman_Tool_ASM_API|Hitman Tool ASM API reference]]
+
+== How Hitman Tool Works ==
+
+[[Hitman_Tool_internal_workings|How Hitman Tool works]]

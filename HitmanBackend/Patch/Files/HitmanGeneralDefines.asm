@@ -263,15 +263,7 @@ endif
 !ExtraByte2 = $7FAB4C
 !ExtraByte3 = $7FAB58
 !ExtraByte4 = $7FAB64
-!ShooterExtraByte = $7FAB70
-!GeneratorExtraByte = $7FAB78
-!ScrollerExtraByte = $7FAB79
 !CustomSpriteNumber = $7FAB9E
-!ShooterExtraBits = $7FABAA
-!GeneratorExtraBits = $7FABB2
-!Layer1ExtraBits = $7FABB3
-!Layer2ExtraBits = $7FABB4
-!SpriteFlags = $7FABB5
 
 if !sa1
 
@@ -325,29 +317,13 @@ if !sa1
 !SpriteMiscTable15 = $766E
 !SpriteDecTimer7 = $7FD6
 
-!ExtraBits = $400040
-!NewCodeFlag = $400056
-!ExtraProp1 = $400057
-!ExtraProp2 = $40006D
-!ExtraByte1 = $400099
-!ExtraByte2 = $4000AF
-!ExtraByte3 = $4000C5
-!ExtraByte4 = $4000DB
-!ShooterExtraByte = $400110
-!GeneratorExtraByte = $4000FC
-!ScrollerExtraByte = $4000FD
-!CustomSpriteNumber = $400083
-!ShooterExtraBits = $400099
-!GeneratorExtraBits = $4000A1
-!Layer1ExtraBits = $4000A2
-!Layer2ExtraBits = $4000A3
-!SpriteFlags = $400118
-
-!cam_x = $34FF
-!cam_y = !cam_x-$02
-!level_size = !cam_y-$02
-!level_height = !level_size-$02
-!camera_lock_y = !level_height-$02
-!camera_lock_x = !camera_lock_y-$02
-!camera_mario_x = !camera_lock_x-$02
+!ExtraBits = $6040
+!NewCodeFlag = $6056
+!ExtraProp1 = $6057
+!ExtraProp2 = $606D
+!ExtraByte1 = $6099
+!ExtraByte2 = $60AF
+!ExtraByte3 = $60C5
+!ExtraByte4 = $60DB
+!CustomSpriteNumber = $6083
 endif

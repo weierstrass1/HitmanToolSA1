@@ -1,0 +1,117 @@
+{{Select Language|Hitman_Tool_internal_workings}}
+
+When a fireball hits a sprite, Hitman needs to know which boxes to compare and how the sprite should respond. That information comes from the files you set up before installing the patch. A hitbox is an invisible rectangle used to check collisions. Each pose, or frame of a sprite's animation, can have its own boxes. A callback is a routine you choose for Hitman to run when something happens, such as a box colliding with Mario.
+
+== How Hitman prepares the ROM ==
+
+# Hitman uses the PIXI list to find sprites. If you supplied an UberASMTool list, it checks that list as well. It reads the directives that link hitboxes (<code>;#inchbi</code>) and properties (<code>;#inchmprop</code>). It also checks its own resource folders.
+# Hitman reads the files to find the hitboxes each pose uses, the callbacks that belong to each box, and the initial property values for each sprite.
+# It builds tables the game can read from ROM and gathers the routines and callbacks it needs to install.
+# Asar patches a temporary copy of the input ROM. If it succeeds, Hitman writes the output ROM and publishes the defines for PIXI and UberASMTool.
+
+Then run PIXI and UberASMTool on the output ROM. A number in the sprite list identifies a type, such as a particular enemy. Two enemies of that type in a level each occupy their own slot, meaning their own entry in the tables the game uses to track active sprites.
+
+== What Hitman changes in the game ==
+
+A ''hijack'' redirects the game from a particular ROM address to code in the patch. When Mario shoots a fireball, for instance, the game reaches its usual impact check. Hitman takes over there to choose the box and the response if it hits a Normal sprite.
+
+{| class="wikitable"
+! SMW address !! What changes
+|-
+| <code>$07F7D2</code> || When a Normal sprite slot is prepared, load its Hitman properties and reset the collision pairs it belongs to. Then run SMW's initialization steps.
+|-
+| <code>$01A411</code> || Check collisions between Normal sprites using their configured hitboxes and pair mask, while keeping filters such as sprite status. Handle ordinary collisions and shell impacts.
+|-
+| <code>$02A0AC</code> || Check Mario and Yoshi fireballs against Normal sprites using the box and event configured for the Extended sprite number. A different routine handles impacts with level blocks.
+|-
+| <code>$028139</code> || Compare both sprites' boxes before resolving an explosion from a Normal sprite.
+|-
+| <code>$0293AE</code> || Find Normal sprites a Quake sprite can affect. Its timer and impact response are handled separately.
+|-
+| <code>$0294C1</code> || Find grounded sprites affected when Mario lands during a cape dive, subject to status checks.
+|-
+| <code>$019F74</code> || Let a carried sprite skip the game's extra drawing code with <code>SkipVanillaCarriedDraw</code>. It can draw itself and still use the game's carried-state logic.
+|}
+
+The table shows SMW's addresses before the patch applies <code>|!rom</code>. The initialization hook sits next to <code>$07F7D6</code>, where the patch writes the pointer PIXI and UberASMTool use to find installed routines.
+
+=== Why Hitman supplies its own spawn routines ===
+
+A newly spawned sprite occupies a free slot. The previous sprite in that slot might have had different properties or a collision blocked with another sprite. Skipping Hitman's initialization can leave those values behind.
+
+The installer copies Hitman's versions of <code>Spawn/Sprite.asm</code> and <code>Spawn/SpriteSafe.asm</code> into PIXI. Both find a free slot and call the initialization code at <code>$07F7D2</code>. For a custom sprite, they set its custom number and flag first so Hitman can look up the right values.
+
+Initialization writes the property values to RAM, allows collisions for the slot's pairs again, and runs the game's initialization routines. It preserves the offsets and speeds the spawn code needs. For custom sprites, the spawn routines also save those values while PIXI loads the sprite's data. Then they mark the slot for INIT and set the requested position and speed.
+
+For example, a passenger's blocked collision is cleared when another sprite takes its slot. On success, the spawn call returns the new slot in Y and clears Carry. If there is no free slot, Y is <code>$FF</code> and Carry is set. See [[Hitman_Tool_ASM_API#Spawn sprites with PIXI|Spawn sprites with PIXI]].
+
+== How hitboxes are stored ==
+
+Hitman stores each box's shape, its actions, and the list of boxes in a pose separately. Two poses can share a 16 × 16 pixel shape even if they use different callbacks.
+
+{| class="wikitable"
+! Shared data !! When it can be reused
+|-
+| Geometry || Width, height, and offsets in both orientations match.
+|-
+| Action profile || The box's actions match, including inherited callbacks.
+|-
+| Pose list || Both poses use the same geometry, actions, and callback box IDs in the same order.
+|}
+
+=== From a context to its boxes ===
+
+Suppose a sprite's poses start at entry 40. Pose 0 is at entry 40 and pose 2 is at entry 42. That starting index is the base context. The <code>!MiSpriteHitboxContext</code> define holds it so you can add a pose index without looking up the starting entry yourself.
+
+<pre>
+Base context + pose
+    → ContextPosesHitboxes
+    → PoseHitboxesIndexers
+    → list in PoseHitboxes
+</pre>
+
+<code>PoseHitboxes</code> stores two-byte offsets to the geometry and ends with <code>$FFFF</code>. At the same positions, <code>PoseHitboxProfiles</code> identifies the action profiles and <code>PoseHitboxCallbackIds</code> holds the historical box ID passed to callbacks in Y.
+
+An action profile selects a routine address from <code>HitboxActions</code>. Each address takes three bytes. The geometry tables and their indexes share a ROM bank. Hitman checks their size when building the tables, and Asar checks where they end up.
+
+== What goes in RAM ==
+
+A sprite with pose hitboxes stores its current pose and flip. A sprite with an adjustable box stores its size and offsets. Some of these values use the same bytes, so write the data for the new mode whenever you switch.
+
+For each Normal sprite property, Hitman builds one 256-entry ROM table for vanilla sprite numbers and one for custom numbers. When a slot is initialized, Hitman copies the value for that sprite type to RAM. Two instances of the same type can start with the same value and change it independently.
+
+The pair mask stores one bit per pair of Normal sprite slots. When a slot is reused, Hitman allows collision for its pairs again. The larger slot selects a row and the smaller slot selects a bit within it. Each row begins at a new byte. The table takes 14 bytes in LoROM (12 slots) and 39 bytes in SA-1 (22 slots).
+
+HB1, HB2, and the callback result are temporary. Copy any box edge you still need before running another check. See [[Hitman_Tool_ASM_API#Move Hitman's RAM block|Move Hitman's RAM block]] to relocate the persistent tables.
+
+== How a collision is checked ==
+
+=== Prepare both rectangles ===
+
+Hitman calculates each box's left, top, right, and bottom edges. For each box of a pose, it adds the offset for the current orientation to the object's position. It adds width and height to get the right and bottom edges. Clipping routines convert the original game's boxes to the same coordinate system.
+
+Hitman stores the rectangles temporarily in HB1 and HB2. HB1 might hold the sprite's box and HB2 Mario's. If they are separated on either axis, they do not collide. Edges that meet count as contact.
+
+=== Check the boxes and run callbacks ===
+
+A check without callbacks can stop as soon as a box collides. A check with callbacks goes through every box in pose order. Each box can run its own routine. For example, the top box can serve as a platform and a side box can keep Mario from walking through the sprite.
+
+Hitman clears <code>!HitmanDefault</code> before the check. Callbacks can set bits there for the calling code to interpret. In this mode, Carry is set when that result is nonzero. A geometry-only check sets Carry when a collision occurs. A box that hits Mario and runs <code>Nothing</code>, for example, can leave the callback result at zero.
+
+== How Hitman handles vanilla interactions ==
+
+The patch connects to the game's routines for Normal sprite collisions, fireballs, explosions, Quake sprites, and cape dives. Before comparing boxes, Hitman can skip an inactive sprite or a pair blocked by the collision mask.
+
+When a hit occurs, the receiver's <code>VanillaResponseMask</code> controls the game's response. <code>VanillaEventMask</code> enables the notification. Hitman adds the bit to <code>ActionFlag</code> and runs any assigned callback after the response. This lets you disable the game's fireball response but still handle the hit yourself.
+
+In a vanilla fireball callback, A identifies the event, X identifies the sprite that was hit, and Y identifies the fireball. In a hitbox callback, Y identifies the box. The [[Hitman_Tool_ASM_API#Event flags and callbacks|API event table]] explains each event's inputs.
+
+=== What changes for projectiles ===
+
+The fireball routine chooses the box geometry and the event by Extended sprite number. You can change a projectile's shape and keep Mario's fireball response. You can also check its boxes manually and handle the impact in your own code.
+
+== How PIXI and UberASMTool find the routines ==
+
+The ROM stores a pointer to <code>RoutinesTable</code> at <code>$07F7D6</code>. The table lists the addresses of the base routines and callbacks included in the patch. While assembling a resource, <code>HitmanDefines.asm</code> reads the table to resolve <code>!Hitman_Base_*</code> and <code>!Hitman_Callback_*</code>.
+
+Adding a callback or base routine can move entries in the table. Run Hitman first, then reassemble the resources that use its defines with PIXI and UberASMTool so their calls point to the new addresses.

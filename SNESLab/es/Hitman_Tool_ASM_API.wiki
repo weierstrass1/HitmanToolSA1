@@ -1,0 +1,500 @@
+{{Select Language|Hitman_Tool_ASM_API}}
+
+Aquí puedes consultar las rutinas de [[es/Hitman_Tool|Hitman Tool]] que se usan desde un sprite o desde UberASM. Si todavía estás creando las cajas de tu sprite, empieza por [[es/Hitman_Tool_files_and_formats|Archivos y Formatos]].
+
+== Preparar el código ==
+
+Instala Hitman Tool antes de ensamblar el código que lo usa. Las rutinas públicas aparecen como <code>!Hitman_Base_*</code> en <code>HitmanDefines.asm</code>. Utiliza las definiciones generadas para la ROM donde vas a insertar el recurso. Consulta el [[es/Hitman_Tool_Quick_Start|Quick Start]] para configurar PIXI y UberASMTool.
+
+Las rutinas de esta página se llaman con <code>JSL</code> y regresan con <code>RTL</code>. Salvo donde se indique otro ancho, prepara A, X e Y en 8 bits. Varias rutinas usan las mismas variables temporales. Si necesitas leer los bordes de una caja o el resultado de un callback, hazlo antes de la siguiente comprobación.
+
+== Defines de Hitman ==
+
+Usa el <code>HitmanDefines.asm</code> que generó Hitman Tool para tu ROM. Si cambias una propiedad, reubicas la RAM o vuelves a instalar el parche, vuelve a ensamblar el código que usa estos defines.
+
+{| class="wikitable"
+! Nombre !! Qué representa
+|-
+| <code>!Hitman_Base_</code> + nombre || Dirección de una rutina base, por ejemplo <code>!Hitman_Base_CheckNormalPair</code>.
+|-
+| <code>!Hitman_Callback_</code> + nombre || Dirección de un callback incluido en la instalación, por ejemplo <code>!Hitman_Callback_SetBit3</code>.
+|-
+| <code>!Hitman_Prop_</code> + <code>Name</code> del JSON || Dirección de una tabla con un byte por slot de Normal sprite.
+|-
+| <code>!MiSpriteHitboxContext</code> || Contexto que genera <code>MiSprite.hitboxinfo</code>. Suma el número de pose para elegir sus cajas.
+|-
+| <code>!HitmanNormal*</code>, <code>!HitmanCluster*</code>, <code>!HitmanExtended*</code> || Tablas por slot. Incluyen <code>ContextIDLow</code>, <code>ContextIDHigh</code>, <code>Flip</code> y los bytes <code>Low</code> y <code>High</code> de <code>XOff</code>, <code>YOff</code>, <code>Width</code> y <code>Height</code>.
+|-
+| <code>!HitmanSprite1X</code>, <code>!HitmanSprite1Y</code>, <code>!HitmanSprite1Flip</code> || Posición y orientación temporales del objeto 1. El objeto 2 tiene los defines equivalentes con <code>Sprite2</code>.
+|-
+| <code>!HitmanHB1Left</code>, <code>!HitmanHB1Top</code>, <code>!HitmanHB1Right</code>, <code>!HitmanHB1Bottom</code> || Bordes de 16 bits de HB1. Usa los mismos sufijos con <code>!HitmanHB2</code> para HB2.
+|-
+| <code>!HitmanHBStatus</code> y <code>!HitmanDefault</code> || Relación entre las cajas y resultado acumulado de los callbacks, respectivamente.
+|-
+| <code>!HitmanEventShell</code>, <code>!HitmanEventRegular</code>, <code>!HitmanEventExplosion</code>, <code>!HitmanEventFireball</code>, <code>!HitmanEventYoshiFireball</code>, <code>!HitmanEventQuake</code>, <code>!HitmanEventCapeDive</code>, <code>!HitmanEventShellHit</code> || Máscaras de eventos vanilla. Se usan para configurar los bits o comparar el evento que llega en A.
+|-
+| <code>!HitmanRAMBase</code>, <code>!HitmanRAMLimit</code>, <code>!HitmanRAMEnd</code> || Inicio, límite reservado y fin del bloque ocupado. Consulta [[#Reubicar la RAM de Hitman|Reubicar la RAM de Hitman]].
+|}
+
+=== Leer o cambiar una propiedad ===
+
+Si defines <code>"Name": "IsLarge"</code> en el JSON, Hitman genera <code>!Hitman_Prop_IsLarge</code>. Usa el slot del Normal sprite en X para consultar esa propiedad. Cada instancia tiene su propio valor.
+
+<pre>
+; A e índices de 8 bits. X = slot del Normal sprite que quieres consultar.
+LDA !Hitman_Prop_IsLarge,x
+BEQ .Pequeno
+; Aquí puedes aplicar la respuesta para un sprite grande.
+</pre>
+
+También puedes cambiar el valor de esa instancia con <code>STA !Hitman_Prop_IsLarge,x</code> con A de 8 bits. El JSON proporciona el valor inicial al preparar el slot.
+
+== Publicar la hitbox de un Normal sprite ==
+
+Cuando otro sprite quiere saber si te toca, Hitman lee <code>!Hitman_Prop_HitboxSystem,x</code> para saber qué cajas debe comprobar. X es el slot del Normal sprite.
+
+{| class="wikitable"
+! Valor !! Geometría
+|-
+| <code>$00</code> || Deshabilitada en los recorridos vanilla de Hitman.
+|-
+| <code>$01</code> || Clipping del juego. Es el valor inicial.
+|-
+| <code>$02</code> || Una caja en RAM con desplazamientos con signo y dimensiones de 8 bits.
+|-
+| <code>$03</code> || Las cajas de la pose activa de un contexto.
+|-
+| <code>$04</code> || Una caja en RAM con desplazamientos con signo y dimensiones de 16 bits.
+|}
+
+En modo <code>$03</code>, guarda el contexto más el número de pose en <code>!HitmanNormalContextIDLow,x</code> y <code>!HitmanNormalContextIDHigh,x</code>. Guarda el volteo en <code>!HitmanNormalFlip,x</code> (<code>0</code> normal, <code>1</code> horizontal, <code>2</code> vertical y <code>3</code> ambos). Actualiza estos datos al cambiar la pose o la orientación. Así, otro sprite puede consultar las cajas del receptor.
+
+== Interacciones vanilla ==
+
+Usa estas rutinas cuando quieras que el juego se encargue de la interacción. Por ejemplo, un proyectil custom puede comportarse como una bola de fuego de Mario.
+
+{| class="wikitable"
+! Rutina !! Entrada en X !! Qué ejecuta
+|-
+| <code>!Hitman_Base_RunVanillaSpriteInteraction</code> || Slot normal actual, también en <code>!SpriteIndex</code>. || Interacción entre Normal sprites.
+|-
+| <code>!Hitman_Base_RunVanillaFireballInteraction</code> || Slot del Extended sprite. || Recorrido de bolas de fuego de Mario o Yoshi, según el evento configurado.
+|-
+| <code>!Hitman_Base_RunVanillaQuakeInteraction</code> || Slot del Quake sprite, de 0 a 3. || Avanza el temporizador y comprueba los receptores cuando corresponde.
+|}
+
+=== Flags y callbacks de eventos ===
+
+<code>VanillaEventMask</code> habilita la notificación de cada evento. <code>ActionFlag</code> acumula los bits y el código que los consume decide cuándo limpiarlos. <code>VanillaResponseMask</code> controla las respuestas del juego. Los valores iniciales de las máscaras son <code>$00</code> y <code>$7F</code>, respectivamente.
+
+{| class="wikitable"
+! Bit !! Evento !! Campo de <code>VanillaCallbacks</code> !! Y al entrar
+|-
+| <code>$01</code> || Impacto de caparazón o ítem || <code>SpriteSprite</code> || Slot normal de la contraparte
+|-
+| <code>$02</code> || Contacto regular entre sprites || <code>SpriteSprite</code> || Slot normal de la contraparte
+|-
+| <code>$04</code> || Explosión || <code>VanillaInteractionCallback</code> (campo de respaldo del JSON) || Slot de la explosión
+|-
+| <code>$08</code> || Bola de fuego de Mario || <code>Fireball</code> || Slot del Extended sprite
+|-
+| <code>$10</code> || Bola de fuego de Yoshi || <code>YoshiFireball</code> || Slot del Extended sprite
+|-
+| <code>$20</code> || Quake || <code>Quake</code> || Slot del Quake sprite
+|-
+| <code>$40</code> || Cape dive || <code>CapeDive</code> || <code>$FF</code>
+|-
+| <code>$80</code> || Aviso posterior para un ítem que sigue en estado <code>$09</code> o <code>$0A</code> || <code>SpriteSprite</code> || Slot normal de la contraparte
+|}
+
+El callback se ejecuta después de la respuesta del juego. Recibe en A el bit del evento actual, en X el slot del receptor y en Y el origen indicado en la tabla. A e índices entran en 8 bits y DBR apunta al banco del callback. Regresa con <code>RTL</code>, la pila balanceada y D y los anchos de registro preservados. El despachador restaura X, Y y DBR. Carry se ignora. El bit <code>$80</code> solo genera una notificación.
+
+== Filtrar el contacto entre Normal sprites ==
+
+=== SetSpritePairCollision ===
+
+Permite o bloquea el contacto vanilla entre dos slots normales. Pasa los slots en X e Y y usa A en <code>$00</code> para bloquear o <code>$01</code> para permitir. Con una sola llamada bloqueas el contacto en ambos sentidos. La rutina preserva X, Y, DBR y D, usa <code>$00–$01</code> como scratch e ignora slots inválidos y pares formados por el mismo slot.
+
+Por ejemplo, un sprite que transporta a otro puede bloquear temporalmente el contacto entre ambos.
+
+<pre>
+; X = sprite que carga, Y = pasajero.
+LDA #$00
+JSL !Hitman_Base_SetSpritePairCollision
+</pre>
+
+Al soltar al pasajero, comprueba que Y siga siendo su slot y repite la llamada con A en <code>$01</code>. Hitman restablece los pares al inicializar un slot.
+
+=== SetSpriteSlotCollision ===
+
+Aplica el mismo cambio a todas las parejas del slot normal X. Usa A en <code>$00</code> para bloquear o <code>$01</code> para permitir. La rutina usa <code>$00–$02</code> como memoria temporal.
+
+== Configurar Extended sprites ==
+
+Edita <code>ASM/ExtendedSpriteTablesConfig.asm</code> en la carpeta de Hitman Tool. Las macros se evalúan al instalar el parche. En estas macros escribes el número del proyectil. Por ejemplo, <code>$05</code> identifica las bolas de fuego de Mario. Cuando hagas una comprobación durante el juego, pasa el slot de la bola de fuego que quieres comprobar.
+
+{| class="wikitable"
+! Modo de <code>%SetExtendedHitboxSystem</code> !! Geometría
+|-
+| <code>$00</code> || Deshabilitada.
+|-
+| <code>$01</code> || Caja fija definida por <code>%SetExtendedHitbox(id, xOffset, yOffset, width, height)</code>.
+|-
+| <code>$02</code> || Caja en RAM con offsets con signo y dimensiones de 8 bits. Publica X/Y en las tablas <code>!HitmanExtendedXOffLow</code> y <code>!HitmanExtendedYOffLow</code>, y el tamaño en <code>!HitmanExtendedWidthLow</code> y <code>!HitmanExtendedHeightLow</code>, indexadas por slot.
+|-
+| <code>$03</code> || Cajas por pose. Publica los dos bytes de contexto más pose en <code>!HitmanExtendedContextIDLow</code> y <code>!HitmanExtendedContextIDHigh</code> y la orientación en <code>!HitmanExtendedFlip</code>, indexados por slot.
+|-
+| <code>$04</code> || Caja en RAM de 16 bits. Publica las partes <code>Low</code> y <code>High</code> de cada offset y dimensión.
+|}
+
+El contexto y algunos desplazamientos usan los mismos bytes. Si pasas de cajas por pose a una caja en RAM, vuelve a guardar sus desplazamientos y dimensiones antes de comprobarla.
+
+<code>%SetExtendedFireballEvent(id, event)</code> configura la respuesta independientemente de la geometría. Usa <code>!HitmanEventFireball</code> para la respuesta de bola de fuego de Mario, <code>!HitmanEventYoshiFireball</code> para la de Yoshi o <code>$00</code> si el proyectil decide su propia respuesta. Mario (<code>$05</code>) y Yoshi (<code>$11</code>) usan cajas fijas por defecto.
+
+Por ejemplo, esta línea cambia la caja fija de la bola de fuego de Mario. La caja mide 12 × 19 píxeles y empieza 32 píxeles a la derecha y 4 por encima del origen.
+
+<pre>
+%SetExtendedHitbox($05, $0020, $FFFC, $000C, $0013)
+</pre>
+
+Para aplicar la respuesta vanilla desde un proyectil llama a [[#Interacciones vanilla|RunVanillaFireballInteraction]]. Para consultar si un proyectil toca a un Normal sprite usa [[#CheckExtendedNormalPair|CheckExtendedNormalPair]] y lee Carry.
+
+== Callbacks incluidos ==
+
+En un <code>.hitboxinfo</code> escribe el nombre de la rutina, por ejemplo <code>.OnPlayerCollision CheckBounce</code>. Hitman incorpora las rutinas seleccionadas desde <code>Routines/</code> y exporta sus direcciones como <code>!Hitman_Callback_*</code>. Para la sintaxis de cada formato, consulta [[es/Hitman_Tool_files_and_formats|Archivos y Formatos]].
+
+Dentro de un callback puedes leer los bordes de las dos cajas en HB1 y HB2, o consultar su posición relativa en <code>!HitmanHBStatus</code>. A, X e Y están en 8 bits y Y contiene el ID histórico de la caja. Regresa con <code>RTL</code> y deja balanceada la pila. Los callbacks pueden acumular bits en <code>!HitmanDefault</code>, que el código llamador consume para decidir qué respuesta aplicar.
+
+{| class="wikitable"
+! Callback !! Uso
+|-
+| <code>Nothing</code> || Retorna sin cambiar el resultado.
+|-
+| <code>SetBit3</code> || Añade la máscara <code>$04</code> a <code>!HitmanDefault</code>.
+|-
+| <code>CheckBounce</code> || Selecciona una superficie de rebote para un Normal sprite, registra sus bordes y distingue la protección cuando Mario está dentro.
+|-
+| <code>CheckBounceBit2</code>, <code>CheckBounceBit3</code> || Ejecutan <code>CheckBounce</code> y añaden <code>$02</code> o <code>$04</code> si el bit alto de <code>$65</code> está apagado.
+|-
+| <code>CheckPlayerIsAbove</code> || Comprueba la posición de Mario para el sistema de rebote, respetando la protección interior.
+|-
+| <code>ItemCheckBounce</code>, <code>ItemCheckPlayerIsAbove</code> || Adaptan esas comprobaciones al estado de un ítem.
+|-
+| <code>CheckBounceCluster</code>, <code>CheckBounceClusterNoYSpeed</code> || Variantes de rebote para Cluster sprites.
+|-
+| <code>CheckBounceSurface</code> || Registra una superficie para la respuesta de rebote.
+|-
+| <code>PlayerFloor</code>, <code>PlayerLeftWall</code>, <code>PlayerRightWall</code> || Comprueban la caja como suelo, pared izquierda o pared derecha para Mario.
+|-
+| <code>DefaultBottomFloorAndDirectionWall</code> || Prueba primero el suelo. Si la prueba falla, selecciona una pared según la dirección del sprite.
+|-
+| <code>SolidForPlayer</code>, <code>SolidForPlayerWithSkip</code> || Variantes para tratar la caja como una superficie sólida para Mario.
+|}
+
+Si tu sprite usa las rutinas de rebote de Dyzen, ejecuta <code>%DyzenPrepareBounce()</code> antes de recorrer las cajas. <code>%DyzenBounce()</code> usa el resultado para aplicar el rebote y <code>%DyzenDetectPlayerIsAbove()</code> actualiza el temporizador de protección interior. Conserva el scratch de ese recorrido entre las llamadas. El callback guarda los bordes en <code>$6A</code> (arriba), <code>$6C</code> (izquierda), <code>$6E</code> (derecha) y <code>$1487|!addr</code> (abajo).
+
+=== Llamar un callback desde ASM ===
+
+Si Hitman incluyó el callback al instalar, llama a su define con <code>JSL !Hitman_Callback_Nombre</code>. El callback vuelve con <code>RTL</code>. Prepara los registros y las variables que espera esa rutina. Por ejemplo, un callback que comprueba una pared necesita que HB1 y HB2 ya contengan las cajas.
+
+<pre>
+; A en 8 bits y !HitmanDefault ya inicializado para esta comprobación.
+JSL !Hitman_Callback_SetBit3
+</pre>
+
+<code>SetBit3</code> añade <code>$04</code> a <code>!HitmanDefault</code>. La llamada por sí sola no comprueba colisión. Para que Hitman incluya un callback, decláralo en la configuración que lo usa o en <code>Dependencies:</code> de un HitboxInfo legacy. Consulta [[es/Hitman_Tool_files_and_formats#Incluir rutinas auxiliares|Incluir rutinas auxiliares]].
+
+=== Crear un callback ===
+
+Crea <code>Routines/RegistrarContacto.asm</code> dentro de la carpeta de Hitman Tool. El nombre de la etiqueta debe coincidir con el del archivo, sin <code>.asm</code>. En este ejemplo, el callback marca el bit <code>$01</code> de <code>!HitmanDefault</code> para que el sprite sepa que tocó a Mario.
+
+<pre>
+RegistrarContacto:
+    LDA #$01
+    TSB.b !HitmanDefault
+    RTL
+</pre>
+
+En el <code>.hitboxinfo</code>, añade esta línea dentro de la caja que debe activar el callback.
+
+<pre>
+    .OnPlayerCollision RegistrarContacto
+</pre>
+
+Vuelve a ejecutar Hitman Tool. Al leer el archivo de hitboxes, incluirá la rutina en el parche y generará <code>!Hitman_Callback_RegistrarContacto</code>. Después de insertar el sprite con PIXI, Hitman ejecutará el callback al comprobar el contacto con esa caja. Si necesitas llamarlo tú mismo desde ASM, usa <code>JSL !Hitman_Callback_RegistrarContacto</code> con A de 8 bits y el acumulador de resultados ya preparado.
+
+== Crear una rutina base ==
+
+Usa una rutina base para compartir código entre sprites o recursos de UberASM. Por ejemplo, puedes crear una rutina que devuelva en Carry si el Normal sprite de X tiene activa la propiedad <code>IsLarge</code>.
+
+Crea <code>Patch/BaseRoutines/EsSpriteGrande.asm</code> y ponle una etiqueta con el mismo nombre que el archivo. Este ejemplo requiere que hayas definido <code>IsLarge</code> en <code>CustomProperties/</code>.
+
+<pre>
+; Entrada: A e índices de 8 bits. X = slot de un Normal sprite.
+; Salida: C = 1 si IsLarge es distinto de cero. X e Y se conservan.
+EsSpriteGrande:
+    LDA !Hitman_Prop_IsLarge,x
+    CMP #$01
+    RTL
+</pre>
+
+Hitman incluye automáticamente los archivos <code>.asm</code> que encuentra directamente en <code>Patch/BaseRoutines/</code>. Vuelve a ejecutar la instalación para que genere <code>!Hitman_Base_EsSpriteGrande</code>. Luego vuelve a ensamblar los recursos con PIXI o UberASMTool sobre la ROM de salida. Usa la nueva definición así:
+
+<pre>
+    JSL !Hitman_Base_EsSpriteGrande
+    BCC .Pequeno
+    ; Aplica aquí la respuesta para un sprite grande.
+.Pequeno
+</pre>
+
+Usa nombres únicos para las etiquetas de entrada y documenta qué espera y qué modifica cada rutina. Los archivos <code>Patch/Files/Includes.asm</code> y <code>HitmanDefines.asm</code> se regeneran al instalar. Basta con añadir el archivo fuente en la carpeta correspondiente.
+
+== Reubicar la RAM de Hitman ==
+
+Hitman guarda sus tablas de sprites, sus propiedades y los filtros de contacto en un bloque de RAM. Si otro parche usa esa zona, puedes mover el bloque entero. La última columna indica la primera dirección que queda fuera de la reserva.
+
+{| class="wikitable"
+! ROM !! Base !! Límite exclusivo
+|-
+| LoROM || <code>$7FAC40</code> || <code>$7FAF00</code>
+|-
+| LoROM con Free7E2000 reconocido || <code>$7E7000</code> || <code>$7E7D00</code>
+|-
+| SA-1 || <code>$408000</code> || <code>$409400</code>
+|}
+
+# Consulta el rango ocupado y la cantidad de bytes en el log de instalación. Cada propiedad personalizada añade un byte por slot normal.
+# Elige un rango disponible para tu ROM que tenga espacio para todas las tablas, que no cruce de banco y que puedas usar junto con Dynamic Xtreme y los demás parches.
+# En <code>ASM/HitmanDefines.asm</code> de la distribución, asigna la primera dirección a <code>!HitmanRAMBase</code> y la primera dirección fuera de la reserva a <code>!HitmanRAMLimit</code>. Configura ambos valores juntos. En el código fuente, la plantilla está en <code>HitmanBackend/ASM/HitmanDefines.asm</code>.
+# Reinstala Hitman y comprueba que <code>!HitmanRAMEnd</code>, el extremo exclusivo usado, no supere el límite elegido. Vuelve a ensamblar los recursos de PIXI y UberASM con los defines nuevos.
+
+La reubicación cambia las tablas persistentes. HB1, HB2, <code>!HitmanHBStatus</code> y <code>!HitmanDefault</code> siguen siendo memoria temporal de colisión.
+
+== Rutinas de interacción manual ==
+
+Si la rutina recibe una pose en A, calcula <code>contexto base + pose actual</code> antes de cada llamada. Lee la pose de la variable que usa tu sprite para animarse. Las tablas <code>ContextIDLow</code> y <code>ContextIDHigh</code> guardan el contexto publicado para que otros recursos puedan consultar esa hitbox.
+
+=== CheckNormalPair ===
+
+Usa <code>JSL !Hitman_Base_CheckNormalPair</code> si ya tienes los slots de los dos Normal sprites en X e Y. Si se tocan, Carry queda en 1. Puedes seguir usando X, Y, DBR y D después de la llamada. La comprobación reutiliza la memoria temporal de colisión. Si has bloqueado la pareja con <code>SetSpritePairCollision</code>, el bloqueo se aplica al recorrido vanilla.
+
+=== CheckExtendedNormalPair ===
+
+Si quieres saber si un proyectil toca a un Normal sprite, pon el slot del Normal sprite en X y el del proyectil en Y. Llama a <code>JSL !Hitman_Base_CheckExtendedNormalPair</code> y comprueba Carry. Con Carry en 1 puedes aplicar tu propia respuesta al impacto. La rutina conserva X, Y, DBR y D, y reutiliza la memoria temporal de colisión.
+
+=== ProcessHitBoxesWithoutCallback ===
+
+Compara las cajas de una pose contra un rectángulo preparado en HB2. Puedes llamar a esta rutina desde UberASM para comprobar una zona sin reservar un slot de sprite.
+
+* Con A en 16 bits, pasa el contexto más el número de pose. Entra con índices de 8 bits y la página directa del juego.
+* Guarda el origen de la pose en <code>!HitmanSprite1X</code> y <code>!HitmanSprite1Y</code>. Prepara <code>!HitmanSprite1Flip</code> y los cuatro bordes de HB2 (<code>!HitmanHB2Left</code>, <code>!HitmanHB2Top</code>, <code>!HitmanHB2Right</code> y <code>!HitmanHB2Bottom</code>).
+* Suma <code>$0100</code> a cada coordenada del origen y a cada borde antes de guardarlos.
+* Carry queda en 1 al encontrar contacto y HB1 contiene la primera caja que tocó el rectángulo. Carry queda en 0 si ninguna caja toca la zona. A e índices regresan en 8 bits. Trata A, Y, HB1 y los punteros temporales de hitbox como scratch.
+
+Con las coordenadas y el volteo ya preparados, esta llamada comprueba la pose 0 de <code>Zone.hitboxinfo</code>.
+
+<pre>
+REP #$20
+LDA.w #!ZoneHitboxContext
+JSL !Hitman_Base_ProcessHitBoxesWithoutCallback
+BCC .SinContacto
+; HB1 contiene la caja que tocó la zona.
+.SinContacto
+</pre>
+
+=== PlayerNormalSpriteInteraction ===
+
+Comprueba las cajas de una pose de un Normal sprite contra Mario y ejecuta los callbacks correspondientes. Pasa el slot en X, el volteo en <code>!HitmanSprite1Flip</code> y el contexto más la pose en A de 16 bits. Entra con índices de 8 bits. Según la distancia, el frame, el estado de Mario y el lado del escenario en que esté, Hitman puede saltarse la comprobación.
+
+Carry indica si los callbacks dejaron un valor distinto de cero en <code>!HitmanDefault</code>. Un contacto puede dejar Carry en 0 si el callback no escribe un resultado. La llamada devuelve A a 8 bits.
+
+=== PlayerSpriteInteraction ===
+
+'''Llamada.''' Usa <code>JSL !Hitman_Base_PlayerNormalSpriteInteraction</code>, <code>JSL !Hitman_Base_PlayerClusterSpriteInteraction</code> o <code>JSL !Hitman_Base_PlayerExtendedSpriteInteraction</code> según la familia. Con X e Y de 8 bits, pasa el slot del sprite en X, el contexto más la pose en A de 16 bits y el volteo en <code>!HitmanSprite1Flip</code>.
+
+'''Resultado.''' Las tres llamadas comparan las cajas de la pose con Mario. Si algún callback deja un resultado en <code>!HitmanDefault</code>, Carry queda en 1. Si solo quieres saber si el sprite toca a Mario, usa <code>InteractionWithoutCallback</code> con los mismos datos. Carry queda en 1 en cuanto una caja toca a Mario. Las variantes <code>OneHitboxInteraction</code> y <code>OneLongHitboxInteraction</code> entran con A también de 8 bits, leen una caja de las tablas RAM del slot y devuelven Carry de contacto. La primera lee dimensiones y offsets de 8 bits y la segunda de 16. Las llamadas regresan con A de 8 bits.
+
+El cálculo es igual para Normal sprites, Cluster sprites y Extended sprites. <code>REP #$21</code> pone A en 16 bits y limpia Carry para la suma. <code>AND.w #$00FF</code> conserva solo el byte de la pose.
+
+'''Ejemplo.''' En un Extended sprite sin volteo, usa la pose actual. <code>!PoseIndex</code> guarda el índice de la pose actual del sprite. Puedes definir tu propia tabla de un byte por slot y actualizarla al cambiar de pose. Si usas Dynamic Xtreme, puedes leer <code>!LastPoseIndex,x</code> en su lugar cuando tenga una pose válida y uses los mismos índices en el archivo de hitboxes.
+
+<pre>
+; A e índices de 8 bits al comenzar. X = slot extended.
+STZ.b !HitmanSprite1Flip
+LDA !PoseIndex,x
+REP #$21
+AND.w #$00FF
+ADC.w #!MiProyectilHitboxContext
+JSL !Hitman_Base_PlayerExtendedSpriteInteractionWithoutCallback
+BCC .SinContacto
+; Aplica aquí la respuesta del proyectil.
+.SinContacto
+</pre>
+
+=== CapeSpriteInteraction ===
+
+'''Llamada.''' Usa <code>JSL</code> con <code>!Hitman_Base_CapeNormalSpriteInteraction</code>, <code>!Hitman_Base_CapeClusterSpriteInteraction</code> o <code>!Hitman_Base_CapeExtendedSpriteInteraction</code>. X identifica el slot, A de 16 bits lleva el contexto más pose y <code>!HitmanSprite1Flip</code> contiene la orientación. Los índices entran en 8 bits.
+
+'''Resultado.''' Comprueba la capa giratoria contra la pose y regresa con A de 8 bits. Carry indica un resultado en <code>!HitmanDefault</code> en las variantes con callbacks y contacto geométrico en las variantes <code>WithoutCallback</code>. Si la capa no está girando, devuelve Carry en 0. Puedes utilizar el ejemplo anterior cambiando la llamada por <code>!Hitman_Base_CapeExtendedSpriteInteractionWithoutCallback</code>.
+
+=== FireballNormalSpriteInteraction y YoshiFireballNormalSpriteInteraction ===
+
+'''Llamada.''' Usa <code>JSL !Hitman_Base_FireballNormalSpriteInteraction</code> para las bolas de fuego de Mario o <code>JSL !Hitman_Base_YoshiFireballNormalSpriteInteraction</code> para el recorrido manual histórico. X es el receptor normal y A de 16 bits contiene contexto más pose. Prepara <code>!HitmanSprite1Flip</code> e índices de 8 bits.
+
+'''Resultado.''' Estas rutinas buscan proyectiles y comprueban si tocan las cajas del sprite. En la implementación actual, las cuatro variantes <code>YoshiFireballNormalSprite*</code> saltan los slots con ID <code>$11</code>. Para detectar un proyectil concreto de Yoshi, selecciona su slot y usa <code>CheckExtendedNormalPair</code>. Carry en 1 indica un resultado de esas acciones. <code>InteractionWithoutCallback</code> usa las mismas entradas y devuelve contacto geométrico. <code>OneHitboxInteraction</code> y <code>OneLongHitboxInteraction</code> toman X con A e índices de 8 bits y consultan una caja RAM de 8 o 16 bits. Para proyectiles custom configurados por número, usa [[#CheckExtendedNormalPair|CheckExtendedNormalPair]] desde una pareja conocida.
+
+=== Recorrer Normal sprites ===
+
+'''Llamada.''' Usa <code>JSL</code> con una de estas entradas y el prefijo <code>!Hitman_Base_</code>.
+
+{| class="wikitable"
+! Entrada !! Origen y receptores
+|-
+| <code>NormalNormalSpriteInteractionLoop</code> || Sprite normal contra otros Normal sprites.
+|-
+| <code>NormalItemSpriteInteractionLoop</code> || Sprite normal contra ítems en los estados admitidos.
+|-
+| <code>ClusterNormalSpriteInteractionLoop</code> || Sprite cluster contra Normal sprites.
+|-
+| <code>ExtendedNormalSpriteInteractionLoop</code> || Sprite extendido contra Normal sprites.
+|}
+
+Pasa el slot de origen en X y mantenlo también en <code>!SpriteIndex</code>. Pasa A de 16 bits con el contexto más pose, índices de 8 bits y el volteo en <code>!HitmanSprite1Flip</code>.
+
+'''Resultado.''' Carry en 1 indica que se encontró un receptor y Y indica su slot. X vuelve al origen. Con callbacks, el recorrido se detiene cuando las acciones producen un resultado. Si solo quieres el primer sprite que toque al origen, usa la variante <code>WithoutCallback</code>. Cada recorrido aplica sus propios filtros.
+
+'''Ejemplo.''' Busca el primer Normal sprite que toque las cajas de la pose actual del Extended sprite.
+
+<pre>
+; X y !SpriteIndex identifican al extended. Flip ya preparado.
+LDA !PoseIndex,x
+REP #$21
+AND.w #$00FF
+ADC.w #!MiProyectilHitboxContext
+JSL !Hitman_Base_ExtendedNormalSpriteInteractionLoopWithoutCallback
+BCC .SinContacto
+; Y identifica el receptor normal.
+.SinContacto
+</pre>
+
+=== AnyNormalSpriteInteraction ===
+
+'''Llamada.''' <code>JSL !Hitman_Base_AnyNormalSpriteInteraction</code> toma X como slot normal receptor y <code>!SpriteIndex</code> como slot del origen. Prepara antes la posición, contexto y volteo del origen en las variables <code>!HitmanSprite1*</code>. Entra en 8 bits. La variante <code>WithoutCallback</code> usa los mismos datos del origen.
+
+'''Resultado.''' Hitman lee las cajas que tenga configuradas el receptor. Con callbacks, Carry indica que las acciones produjeron un resultado. Con <code>WithoutCallback</code>, Carry indica que las cajas se tocan. <code>JSL !Hitman_Base_AnyNormalSpriteInteractionOneHitbox</code> recibe en cambio HB1 ya calculada y X como receptor, y devuelve contacto geométrico en Carry.
+
+== Preparar y comparar cajas ==
+
+{| class="wikitable"
+! Rutina con prefijo <code>!Hitman_Base_</code> !! Entradas !! Resultado
+|-
+| <code>NormalSpritePositionSetup</code>, <code>ClusterPositionSetup</code>, <code>ExtendedPositionSetup</code> || X = slot de la familia correspondiente. || Guarda X/Y de la posición en <code>!HitmanSprite1X/Y</code> en el convenio interno de Hitman.
+|-
+| <code>NormalSpritePositionSetup2</code> || X = slot normal. || Prepara <code>!HitmanSprite2X/Y</code>.
+|-
+| <code>NormalSpriteOneHitbox1</code>, <code>ClusterSpriteOneHitbox1</code>, <code>ExtendedSpriteOneHitbox1</code> || X = slot con su caja RAM publicada. || Calcula HB1 usando campos de 8 bits. Termina en <code>2</code> para escribir HB2.
+|-
+| <code>NormalSpriteLongOneHitbox1</code>, <code>ClusterSpriteLongOneHitbox1</code>, <code>ExtendedSpriteLongOneHitbox1</code> || X = slot con su caja RAM publicada. || Calcula HB1 usando campos de 16 bits. Termina en <code>2</code> para escribir HB2.
+|-
+| <code>PlayerClippingRoutine</code>, <code>NormalSpriteClippingRoutine</code> || Mario o Normal sprite en X, respectivamente. || Prepara HB2 con el clipping del juego.
+|-
+| <code>CapeClipping</code>, <code>CapeClippingHB1</code> || Posición actual de la capa. || Prepara HB2 o HB1, respectivamente.
+|-
+| <code>FireballClipping</code>, <code>FireballClippingHB1</code>, <code>YoshiFireballClipping</code> || Y = slot extendido. || Prepara HB2, HB1 y HB2, respectivamente, con la caja fija de la rutina.
+|-
+| <code>FixClippingForInteraction</code> || Clipping vanilla ya cargado en scratch. || Convierte ese clipping a los cuatro bordes de HB2.
+|-
+| <code>CheckContact</code> || HB1 y HB2 preparadas. || Carry en 1 si las cajas se tocan. Incluye bordes iguales. A regresa a 8 bits.
+|-
+| <code>LoadNormalHitbox</code> || X = slot normal, Y = ordinal de la caja. || Carry en 1 si HB1 contiene una caja válida. Una caja única usa ordinal 0. Preserva X, Y, DBR y D. Modifica A, <code>$04–$07</code>, HB1, posición temporal del objeto 2 y <code>$98–$9B</code>.
+|-
+| <code>GetHitbox2</code> || A de 16 bits = contexto más pose del objeto 2, índices de 8 bits y Y = ordinal. Prepara <code>!HitmanSprite2X/Y</code> y <code>!HitmanSprite2Flip</code>. || Carry en 1 si cargó HB2 y en 0 al terminar la lista. Vuelve con A e índices de 8 bits.
+|-
+| <code>ProcessHitBoxes</code> || Las mismas entradas que [[#ProcessHitBoxesWithoutCallback|ProcessHitBoxesWithoutCallback]]. || Recorre toda la pose y ejecuta las acciones por caja. Carry indica si <code>!HitmanDefault</code> quedó distinto de cero.
+|}
+
+Llama a cada rutina de la tabla con <code>JSL</code>. Entra con A e índices de 8 bits salvo cuando la tabla especifique A de 16 bits.
+
+<pre>
+; X = slot normal. A e índices en 8 bits.
+LDY #$00
+JSL !Hitman_Base_LoadNormalHitbox
+BCC .SinCaja
+JSL !Hitman_Base_PlayerClippingRoutine
+JSL !Hitman_Base_CheckContact
+BCC .SinContacto
+; Mario toca la primera caja.
+.SinContacto
+.SinCaja
+</pre>
+
+== Estados, puntos y efectos ==
+
+=== RunVanillaStatus ===
+
+Llama con <code>JSL !Hitman_Base_RunVanillaStatus</code> seguido del sufijo de la tabla. Pasa el slot normal en X con A e índices de 8 bits. Cada entrada ejecuta el handler del estado indicado. Los cambios dependen del estado. Por ejemplo, la rutina puede mover el sprite, dibujarlo o cambiar su estado. El estado <code>$08</code> se atiende en MAIN.
+
+{| class="wikitable"
+! Estado !! Sufijo !! Estado !! Sufijo
+|-
+| <code>$00</code> || Erase || <code>$07</code> || Unused
+|-
+| <code>$01</code> || Init || <code>$09</code> || Stunned
+|-
+| <code>$02</code> || Killed || <code>$0A</code> || Kicked
+|-
+| <code>$03</code> || Smushed || <code>$0B</code> || Carried
+|-
+| <code>$04</code> || SpinJumped || <code>$0C</code> || GoalPowerup
+|-
+| <code>$05</code> || Sinking || <code>$06</code> || LevelEndCoin
+|}
+
+Por ejemplo, si el slot actual ya está en estado <code>$0B</code>, <code>JSL !Hitman_Base_RunVanillaStatusCarried</code> ejecuta su lógica vanilla de transporte.
+
+=== Vectores de respuesta por estado ===
+
+<code>NormalSpriteExecuteCollissionResultVector</code> usa el estado del otro sprite en Y. <code>NormalSpriteExecuteFullCollissionResultVector</code> usa también el estado del sprite actual en X. Ambas entradas se llaman con <code>JSL</code>, con A e índices de 8 bits. Coloca el retorno de tu rutina inmediatamente después del <code>JSL</code> y a continuación la tabla de direcciones de 16 bits del mismo banco. El handler seleccionado regresa con <code>RTL</code> al retorno que sigue al <code>JSL</code>. Si el estado no pasa la comprobación, el control vuelve directamente a la instrucción que sigue al <code>JSL</code>.
+
+Usa este orden en cada grupo de la tabla: normal, estacionario, pateado y cargado. La variante completa tiene cuatro grupos en ese mismo orden según el estado del sprite actual.
+
+<pre>
+Responder:
+    JSL !Hitman_Base_NormalSpriteExecuteCollissionResultVector
+    RTS
+    dw .Normal, .Estacionario, .Pateado, .Cargado
+.Normal
+    RTL
+.Estacionario
+    RTL
+.Pateado
+    RTL
+.Cargado
+    RTL
+</pre>
+
+=== Utilidades ===
+
+Llama con <code>JSL</code> y el prefijo <code>!Hitman_Base_</code>, con A e índices de 8 bits.
+
+{| class="wikitable"
+! Rutina !! Entrada !! Resultado o efecto
+|-
+| <code>SubHorzPos</code> || X = slot normal. || Y vale 0 si Mario queda a la derecha o en el mismo X, y 1 si queda a la izquierda. <code>$0E–$0F</code> guarda Mario X menos sprite X.
+|-
+| <code>SubVertPos</code> || X = slot normal. || Y vale 1 si Mario queda por encima y 0 en los demás casos. Deja el byte bajo de la diferencia vertical en <code>$0F</code>.
+|-
+| <code>CapeStomping</code>, <code>YoshiStomping</code> || X = slot normal. || Carry en 1 si pasan las comprobaciones auxiliares de pisotón para la capa o Yoshi.
+|-
+| <code>GivePointsConsecutiveJump</code>, <code>GivePointsConsecutiveShell</code> || X = slot normal. || Actualizan el contador de impactos consecutivos, el sonido y los puntos del recorrido correspondiente.
+|-
+| <code>DisplayContactEffectAtSpritePosition</code> || X = slot normal. || Reproduce el efecto de contacto en la posición del sprite y usa scratch a partir de <code>$00</code>.
+|-
+| <code>StunKickedSprite</code> || X = slot normal, A = velocidad vertical inicial, por ejemplo <code>$C0</code>. || Aturde al sprite y aplica la velocidad. Puedes mostrar el efecto visual con <code>DisplayContactEffectAtSpritePosition</code>.
+|-
+| <code>DispatchVanillaCallback</code> || A = evento, X = receptor normal, Y = origen. || Aplica los filtros de despacho y llama al callback configurado. Preserva X, Y, DBR, D y <code>$0E</code>. Consulta [[#Flags y callbacks de eventos|Flags y callbacks de eventos]].
+|}
+
+=== Crear sprites con PIXI ===
+
+Usa <code>%Spawn_Sprite()</code> o <code>%Spawn_SpriteSafe()</code> con el número del sprite en A. Pon Carry en 1 para un sprite custom o en 0 para uno vanilla. Pasa los offsets X/Y en <code>$00–$01</code> y las velocidades iniciales en <code>$02–$03</code>. <code>SpriteSafe</code> recibe además en <code>$04</code> el primer slot que debe revisar. Si se crea el sprite, Carry queda en 0 e Y contiene su slot. Si falla, Carry queda en 1 e Y contiene <code>$FF</code>.

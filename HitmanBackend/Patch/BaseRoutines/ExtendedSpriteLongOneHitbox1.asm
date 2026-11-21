@@ -1,0 +1,65 @@
+ExtendedSpriteLongOneHitbox1:
+
+    LDA !HitmanExtendedWidthLow,x
+    STA !HitmanHB1Right
+    LDA !HitmanExtendedWidthHigh,x
+    STA !HitmanHB1Right+1
+
+    LDA !HitmanExtendedHeightLow,x
+    STA !HitmanHB1Bottom
+    LDA !HitmanExtendedHeightHigh,x
+    STA !HitmanHB1Bottom+1
+
+    LDA !HitmanExtendedXOffLow,x
+    STA !HitmanHB1Left
+    LDA !HitmanExtendedXOffHigh,x
+    STA !HitmanHB1Left+1
+
+    LDA !HitmanExtendedYOffLow,x
+    STA !HitmanHB1Top
+    LDA !HitmanExtendedYOffHigh,x
+    STA !HitmanHB1Top+1
+
+    LDA !ExtendedXHigh,x
+    XBA
+    LDA !ExtendedXLow,x
+    REP #$21
+    ADC !HitmanHB1Left
+    CLC
+    ADC #$0100
+    STA !HitmanHB1Left
+    BPL +
+    STZ !HitmanHB1Left
++
+    CLC
+    ADC !HitmanHB1Right
+    STA !HitmanHB1Right
+    BPL +
+    LDA #$FF00
+    STA !HitmanHB1Left
+    STA !HitmanHB1Right
++
+    SEP #$20
+
+    LDA !ExtendedYHigh,x
+    XBA
+    LDA !ExtendedYLow,x
+    REP #$21
+    ADC !HitmanHB1Top
+    CLC
+    ADC #$0100
+    STA !HitmanHB1Top
+    BPL +
+    STZ !HitmanHB1Top
++
+    CLC
+    ADC !HitmanHB1Bottom
+    STA !HitmanHB1Bottom
+    BPL +
+    LDA #$FF00
+    STA !HitmanHB1Top
+    STA !HitmanHB1Bottom
++
+    SEP #$20
+
+RTL

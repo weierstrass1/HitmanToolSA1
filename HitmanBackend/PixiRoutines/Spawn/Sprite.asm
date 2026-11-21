@@ -23,15 +23,28 @@
             DEX
         BPL ?-
         SEC
-        BRA ?.no_slot
+    TXY
+    PLX
+RTL
     ?+
     XBA
     STA !9E,x
     
     BCC ?+
+        LDA #$08
+        STA !7FAB10,x
+        PHA
+
         LDA !9E,x
         STA !7FAB9E,x
-        
+        PHA
+
+        JSL $07F7D2|!BankB
+
+        PLA
+        STA !7FAB9E,x
+        PLA
+        STA !7FAB10,x
 
         PEI ($00)
         PEI ($02)
@@ -42,12 +55,17 @@
         PLA : STA $02
         PLA : STA $00
         SEP #$20
-        
-        LDA #$08
-        STA !7FAB10,x
+        BRA ?++
     ?+
+    LDA #$00
+    STA !7FAB10,x
+    PHA
+
     JSL $07F7D2|!BankB
-    
+
+    PLA
+    STA !7FAB10,x
+?++
     LDA #$01
     STA !14C8,x
     
@@ -81,8 +99,3 @@
     
     CLC
     RTL    
-    
-?.no_slot:
-    TXY
-    PLX
-    RTL

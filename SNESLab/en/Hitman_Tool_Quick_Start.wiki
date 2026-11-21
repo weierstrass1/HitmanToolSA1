@@ -1,0 +1,67 @@
+{{Select Language|Hitman_Tool_Quick_Start}}
+
+This guide shows how to install [[Hitman_Tool|Hitman Tool]] on Windows or Linux.
+
+== Requirements ==
+
+Install the [https://dotnet.microsoft.com/download/dotnet/8.0 .NET 8 runtime] for your operating system. The runtime is enough.
+
+Download Hitman Tool from [https://snestorage.dev/ SNEStorage] and extract the entire package.
+
+== Prepare your resources ==
+
+=== PIXI sprites ===
+
+Copy each sprite package to the matching PIXI folder. Keep its files and subfolders together.
+
+* <code>sprites/</code> for Normal sprites.
+* <code>cluster/</code> for Cluster sprites.
+* <code>extended/</code> for Extended sprites.
+
+Add the sprite to the PIXI list. If its ASM links files with <code>;#inchbi</code> or <code>;#inchmprop</code>, keep those files at the paths specified in the ASM.
+
+=== UberASMTool resources ===
+
+Copy each resource to the appropriate folder, such as <code>level/</code>, <code>overworld/</code>, or <code>gamemode/</code>, and add it to the UberASMTool list. If its ASM links a <code>.hitboxinfo</code> file with <code>;#inchbi</code>, keep that file where the resource expects it.
+
+=== Traditional folders ===
+
+If a resource tells you to put its files in the Hitman Tool folder, use these paths.
+
+{| class="wikitable"
+! File !! Folder
+|-
+| <code>.hitboxinfo</code> file || <code>HitboxInfo/</code>
+|-
+| Per-sprite property JSON || <code>CustomProperties/PerSprite/</code>
+|}
+
+== Install Hitman Tool ==
+
+Make a copy of your project's ROM to use as the output. That file must already exist when you run Hitman Tool.
+
+Open a terminal in the Hitman Tool folder. Run <code>.\ht.exe</code> on Windows or <code>./ht</code> on Linux and answer the prompts.
+
+{| class="wikitable"
+! Prompt !! Example
+|-
+| Input ROM || <code>C:\MyHack\MyHack.smc</code>
+|-
+| Output ROM || <code>C:\MyHack\MyHack_Hitman.smc</code>
+|-
+| PIXI folder || <code>C:\MyHack\PIXI</code>
+|-
+| PIXI list || <code>C:\MyHack\PIXI\list.txt</code>
+|-
+| UberASMTool folder (optional) || <code>C:\MyHack\UberASMTool</code>. Press Enter to skip it.
+|-
+| UberASMTool list (if you entered the folder) || <code>list.txt</code> if it is inside that folder. Press Enter to install only the Hitman Tool defines.
+|}
+
+Paths are saved in <code>Json/Settings.json</code>. Add <code>-use-settings</code> to the command to use them again. To change or disable the UberASMTool integration, run without that argument and answer the prompts again.
+
+== Finish the installation ==
+
+Run PIXI on the output ROM using the same sprite list. If you configured UberASMTool, run it on that ROM too.
+
+When you change hitbox files or properties that Hitman Tool reads, run Hitman Tool again before PIXI and, if you use it, UberASMTool.

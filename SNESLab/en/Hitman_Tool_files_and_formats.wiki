@@ -1,0 +1,155 @@
+{{Select Language|Hitman_Tool_files_and_formats}}
+
+[[Hitman_Tool|Hitman Tool]] reads files that define properties, override them for individual sprite types, or describe a resource's hitboxes.
+
+== File types ==
+
+{| class="wikitable"
+! Type !! What it does !! Where it goes
+|-
+| Property definition (JSON) || Creates a property and supplies its initial values. || <code>CustomProperties/</code>
+|-
+| Per-sprite configuration (JSON) || Sets property overrides and vanilla event callbacks for a Normal sprite type. || Beside the resource via <code>;#inchmprop</code>, or in <code>CustomProperties/PerSprite/</code>.
+|-
+| <code>.hitboxinfo</code> || Defines hitboxes and assigns them to poses. || Beside the resource via <code>;#inchbi</code>, or in <code>HitboxInfo/</code>.
+|}
+
+The <code>CustomProperties/</code> and <code>HitboxInfo/</code> directories are inside the Hitman Tool folder.
+
+== Linking files from PIXI and UberASMTool ==
+
+Put the directives in the resource's main ASM file. Paths are relative to that file's folder.
+
+<pre>
+;#inchbi "MiSprite.hitboxinfo"
+;#inchmprop "MiSprite.hitman.json"
+</pre>
+
+A PIXI or UberASMTool ASM file can link several <code>.hitboxinfo</code> files. Each generates a context define from its filename. For example, <code>MiSprite.hitboxinfo</code> generates <code>!MiSpriteHitboxContext</code> in <code>HitmanDefines.asm</code>. A linked file takes precedence over a file of the same name in <code>HitboxInfo/</code>.
+
+Use <code>;#inchmprop</code> at most once in the main ASM file of a PIXI Normal sprite. See the [[Hitman_Tool_Quick_Start|Quick Start]] to install the resources and regenerate the defines.
+
+== Define properties ==
+
+Create a JSON file in <code>CustomProperties/</code>. Give the property a name and set the initial value for vanilla and custom Normal sprites. Write each one-byte value as a quoted hexadecimal string.
+
+<pre>
+{
+  "Name": "IsLarge",
+  "DefaultValueVanilla": "00",
+  "DefaultValueCustom": "00"
+}
+</pre>
+
+Here all sprites start with <code>00</code> (small). Set <code>01</code> for a large sprite so other sprites can tell which response to apply.
+
+== Override properties for a sprite ==
+
+This JSON sets <code>IsLarge</code> to <code>01</code> on every instance of one custom sprite type. Properties you leave out keep their initial values.
+
+<pre>
+{
+  "Name": "MiSprite",
+  "IsCustom": true,
+  "Properties": [
+    { "PropertyName": "IsLarge", "Value": "01" }
+  ]
+}
+</pre>
+
+For a custom sprite configured in <code>CustomProperties/PerSprite/</code>, set <code>Name</code> to the base name of its PIXI CFG or JSON file. For <code>MiSprite.json</code>, use <code>MiSprite</code>. When using <code>;#inchmprop</code>, Hitman gets the name from the PIXI entry. For a vanilla sprite in the central folder, set <code>"IsCustom": false</code> and put its hexadecimal number in <code>ID</code>.
+
+You can also add a <code>VanillaCallbacks</code> object. The fields are <code>SpriteSprite</code>, <code>Fireball</code>, <code>YoshiFireball</code>, <code>Quake</code>, and <code>CapeDive</code>. Each value names a routine. Set the matching bit in <code>VanillaEventMask</code> to receive the event. Older configurations can use <code>VanillaInteractionCallback</code> as a fallback and for explosions.
+
+== HitboxInfo ==
+
+Each <code>.hitboxinfo</code> file defines a hitbox context. A pose can contain several boxes, share boxes with other poses, or be empty. Both formats can be used in the same installation. Use one format per file.
+
+=== Current format ===
+
+<pre>
+AllHitboxes:
+    .XOffset $08
+    .XPivot $08
+
+HitboxesPerPose:
+    .Pose0 0
+    .Pose1..2 0,1
+    .Pose[4,6] 1
+    .Pose7
+
+AllHitboxCallbacks:
+    .OnPlayerNonCollision CheckPlayerIsAbove
+
+Hitbox0:
+    .YOffset $FFFF
+    .Width $10
+    .Height $08
+    .OnPlayerCollision CheckBounce
+
+Hitbox1:
+    .XOffset $0C
+    .Width $08
+</pre>
+
+* <code>HitboxesPerPose:</code> lists each pose's boxes in the order Hitman checks them. Pose and box numbers are decimal. <code>.Pose1..2</code> covers poses 1 and 2, while <code>.Pose[4,6]</code> selects only 4 and 6. A pose with no boxes, such as pose 7, is empty. Missing pose numbers are empty as well.
+* <code>HitboxN:</code> defines box N. <code>.XOffset</code> and <code>.YOffset</code> move the box relative to the object's origin. <code>.Width</code> and <code>.Height</code> must be positive and are measured in pixels. For a vertical offset of −1 use <code>$FFFF</code>. <code>$FF</code> means +255 here.
+* <code>AllHitboxes:</code> can shift all boxes. <code>.XPivot</code> and <code>.YPivot</code> set the point each axis is mirrored around. A box can override its pivot, including with <code>$00</code>. Hitman adds the global offset after mirroring.
+* <code>AllHitboxCallbacks:</code> supplies shared callbacks. Each box can override them separately. <code>.OnPlayerCollision</code> runs on collision with Mario and <code>.OnPlayerNonCollision</code> runs when the box does not collide with him. The reader accepts fields for other families, but the current patch only runs these two per-box callbacks from this format.
+
+Older files in this format can use <code>AllHitboxXOffset:</code> and <code>AllHitboxYOffset:</code>, which apply the shift before mirroring. Use either those sections or <code>AllHitboxes:</code> in a file.
+
+==== Defaults ====
+
+{| class="wikitable"
+! Field !! If omitted
+|-
+| <code>.XOffset</code> and <code>.YOffset</code> || <code>$00</code>. Any offset defined in <code>AllHitboxes:</code> is added to the box.
+|-
+| <code>.Width</code> and <code>.Height</code> || <code>$10</code> (16 pixels) per axis.
+|-
+| <code>.XPivot</code> and <code>.YPivot</code> || The pivot in <code>AllHitboxes:</code>. If there is no pivot there either, flipping leaves the offset for that axis unchanged.
+|-
+| <code>.OnPlayerCollision</code> and <code>.OnPlayerNonCollision</code> || The matching callback in <code>AllHitboxCallbacks:</code>, or <code>Nothing</code> if none is set there.
+|}
+
+=== Legacy format ===
+
+The legacy format uses parallel tables. The first entry in each table belongs to box <code>$00</code>.
+
+<pre>
+PoseHitBoxes:
+    db $00,$FF
+    db $FF
+
+HitboxXOffset:
+    dw $0000
+HitboxYOffset:
+    dw $FFFF
+HitboxWidth:
+    dw $0010
+HitboxHeight:
+    dw $0008
+HitboxAction1:
+    dw $0000
+HitboxAction2:
+    dw $0002
+Actions:
+    dw CheckBounce
+    dw CheckPlayerIsAbove
+</pre>
+
+* Pose 0 uses box <code>$00</code>. Each pose ends in <code>$FF</code>. Pose 1 has only that terminator, so it is empty.
+* Offsets, width, and height have one entry per box. Optional <code>HitboxXOffsetFlip</code> and <code>HitboxYOffsetFlip</code> tables specify flipped offsets. If omitted, Hitman uses the original offsets.
+* <code>HitboxAction1</code> selects the contact routine and <code>HitboxAction2</code> selects the non-contact routine. Both are byte offsets into <code>Actions:</code>. Use <code>$0000</code> for the first routine, <code>$0002</code> for the second, and so on. If no actions are declared, Hitman uses <code>Nothing</code>.
+
+==== Include helper routines ====
+
+Use <code>Dependencies:</code> when a callback needs a helper that Hitman cannot find on its own, for example because the name only appears inside a macro. Write <code>dw</code> followed by the routine name without <code>.asm</code>. Hitman looks for the file in <code>Routines/</code> and includes it in the patch.
+
+<pre>
+Dependencies:
+    dw PlayerFloor
+</pre>
+
+This includes <code>Routines/PlayerFloor.asm</code>. It does not call the routine or assign it to a box. <code>HitboxAction1</code> and <code>HitboxAction2</code> still refer to entries in <code>Actions:</code>.

@@ -1,0 +1,157 @@
+{{Select Language|Hitman_Tool_files_and_formats}}
+
+[[es/Hitman_Tool|Hitman Tool]] lee archivos que definen propiedades, cambian sus valores para sprites específicos o describen las cajas de colisión de un recurso.
+
+== Tipos de archivos ==
+
+{| class="wikitable"
+! Tipo !! Para qué sirve !! Dónde se coloca
+|-
+| Definición de propiedad (JSON) || Crea una propiedad y fija sus valores iniciales. || <code>CustomProperties/</code>
+|-
+| Configuración por sprite (JSON) || Cambia propiedades para un tipo de sprite normal y permite asignarle callbacks de interacciones vanilla. || Junto al recurso, mediante <code>;#inchmprop</code>, o en <code>CustomProperties/PerSprite/</code>.
+|-
+| Archivo <code>.hitboxinfo</code> || Define cajas de colisión y las asigna a poses. || Junto al recurso, mediante <code>;#inchbi</code>, o en <code>HitboxInfo/</code>.
+|}
+
+Las carpetas <code>CustomProperties/</code> y <code>HitboxInfo/</code> están dentro de la carpeta de Hitman Tool.
+
+== Inclusión de archivos desde PIXI y UberASMTool ==
+
+Coloca las directivas en el archivo ASM principal del recurso. Las rutas se escriben desde la carpeta de ese archivo.
+
+<pre>
+;#inchbi "MiSprite.hitboxinfo"
+;#inchmprop "MiSprite.hitman.json"
+</pre>
+
+Puedes incluir varios archivos <code>.hitboxinfo</code> desde un mismo ASM de PIXI o UberASMTool. Cada archivo genera un define de contexto a partir de su nombre. Por ejemplo, <code>MiSprite.hitboxinfo</code> genera <code>!MiSpriteHitboxContext</code> en <code>HitmanDefines.asm</code>. Si un archivo vinculado tiene el mismo nombre que otro de <code>HitboxInfo/</code>, se usa el vinculado.
+
+Usa <code>;#inchmprop</code> una sola vez en el ASM principal de un sprite normal de PIXI. Para instalar los recursos y regenerar sus definiciones, consulta el [[es/Hitman_Tool_Quick_Start|Quick Start]].
+
+== Definir propiedades ==
+
+Crea un JSON en <code>CustomProperties/</code> con el nombre de la propiedad y un valor inicial para sprites normales vanilla y otro para sprites normales custom. Cada valor ocupa un byte y se escribe en hexadecimal entre comillas.
+
+<pre>
+{
+  "Name": "IsLarge",
+  "DefaultValueVanilla": "00",
+  "DefaultValueCustom": "00"
+}
+</pre>
+
+En este ejemplo, todos los sprites empiezan con <code>00</code> (pequeño). Puedes asignar <code>01</code> a un sprite grande. Otros sprites pueden leer la propiedad para decidir cómo reaccionar según su tamaño.
+
+== Cambiar propiedades para un sprite ==
+
+El siguiente JSON asigna <code>01</code> a <code>IsLarge</code> para todas las instancias de un sprite custom. Las propiedades que omitas conservan su valor inicial.
+
+<pre>
+{
+  "Name": "MiSprite",
+  "IsCustom": true,
+  "Properties": [
+    { "PropertyName": "IsLarge", "Value": "01" }
+  ]
+}
+</pre>
+
+Si colocas el JSON en <code>CustomProperties/PerSprite/</code>, el campo <code>Name</code> de un sprite custom debe coincidir con el nombre base de su archivo CFG o JSON en PIXI. Por ejemplo, usa <code>MiSprite</code> para <code>MiSprite.json</code>. Si usas <code>;#inchmprop</code>, Hitman Tool obtiene ese nombre de la entrada de PIXI. Para configurar un sprite vanilla desde la carpeta central, usa <code>"IsCustom": false</code> e indica su número hexadecimal en <code>ID</code>.
+
+El mismo JSON admite un bloque opcional <code>VanillaCallbacks</code>. Sus campos son <code>SpriteSprite</code>, <code>Fireball</code>, <code>YoshiFireball</code>, <code>Quake</code> y <code>CapeDive</code>. Cada valor es el nombre de una rutina. Para recibir el evento, habilita su bit en la propiedad <code>VanillaEventMask</code>. Los archivos anteriores también pueden usar <code>VanillaInteractionCallback</code> como respaldo y para explosiones.
+
+== HitboxInfo ==
+
+Cada archivo <code>.hitboxinfo</code> define las cajas de un contexto. Una pose puede tener varias cajas, compartirlas con otras poses o quedar vacía. Puedes usar archivos de ambos formatos en una instalación. Cada archivo debe seguir un solo formato.
+
+=== Formato actual ===
+
+<pre>
+AllHitboxes:
+    .XOffset $08
+    .XPivot $08
+
+HitboxesPerPose:
+    .Pose0 0
+    .Pose1..2 0,1
+    .Pose[4,6] 1
+    .Pose7
+
+AllHitboxCallbacks:
+    .OnPlayerNonCollision CheckPlayerIsAbove
+
+Hitbox0:
+    .YOffset $FFFF
+    .Width $10
+    .Height $08
+    .OnPlayerCollision CheckBounce
+
+Hitbox1:
+    .XOffset $0C
+    .Width $08
+</pre>
+
+* <code>HitboxesPerPose:</code> indica qué cajas usa cada pose, en el orden en que se comprueban. Los números de pose y de caja son decimales. <code>.Pose1..2</code> asigna las mismas cajas a las poses 1 y 2. <code>.Pose[4,6]</code> selecciona solo las poses 4 y 6. Una pose sin cajas, como la 7, queda vacía. Los números omitidos también quedan vacíos.
+* <code>HitboxN:</code> define una caja. <code>.XOffset</code> y <code>.YOffset</code> desplazan la caja desde el origen del recurso. Empiezan en <code>$00</code>. <code>.Width</code> y <code>.Height</code> son sus dimensiones en píxeles. Deben ser positivas y empiezan en <code>$10</code>. Para desplazar la caja un píxel hacia arriba, usa <code>$FFFF</code> (−1) en Y. <code>$FF</code> representa +255 en este formato.
+* <code>AllHitboxes:</code> permite desplazar todas las cajas. <code>.XPivot</code> y <code>.YPivot</code> fijan el punto alrededor del cual se refleja cada eje al voltear la caja. Una caja puede fijar su propio pivote, incluso a <code>$00</code>. Si no hay pivote para un eje, su desplazamiento se mantiene al voltear. El desplazamiento global se suma después de calcular el reflejo.
+* <code>AllHitboxCallbacks:</code> define callbacks comunes. Cada caja puede sustituirlos por separado. <code>.OnPlayerCollision</code> se usa al tocar a Mario y <code>.OnPlayerNonCollision</code> cuando la caja no lo toca. El lector reconoce campos para otras familias, pero el parche actual solo ejecuta estos dos callbacks por caja del formato actual.
+
+Algunos archivos del formato actual usan <code>AllHitboxXOffset:</code> y <code>AllHitboxYOffset:</code>. Esas secciones siguen funcionando y aplican el desplazamiento antes de reflejar la caja. Usa esas secciones o <code>AllHitboxes:</code> en un mismo archivo.
+
+==== Valores por defecto ====
+
+Si omites un campo, Hitman Tool usa estos valores.
+
+{| class="wikitable"
+! Campo !! Valor al omitirlo
+|-
+| <code>.XOffset</code> y <code>.YOffset</code> || <code>$00</code>. Si hay un desplazamiento en <code>AllHitboxes:</code>, se suma al de la caja.
+|-
+| <code>.Width</code> y <code>.Height</code> || <code>$10</code> (16 píxeles) por eje.
+|-
+| <code>.XPivot</code> y <code>.YPivot</code> || Se usa el pivote de <code>AllHitboxes:</code>. Si tampoco se define allí, el desplazamiento de ese eje se conserva al voltear.
+|-
+| <code>.OnPlayerCollision</code> y <code>.OnPlayerNonCollision</code> || Se usa el callback de <code>AllHitboxCallbacks:</code> para ese campo. Si tampoco se define allí, se usa <code>Nothing</code>.
+|}
+
+=== Formato legacy ===
+
+El formato legacy organiza las cajas en tablas paralelas. La primera entrada de cada tabla corresponde a la caja <code>$00</code>.
+
+<pre>
+PoseHitBoxes:
+    db $00,$FF
+    db $FF
+
+HitboxXOffset:
+    dw $0000
+HitboxYOffset:
+    dw $FFFF
+HitboxWidth:
+    dw $0010
+HitboxHeight:
+    dw $0008
+HitboxAction1:
+    dw $0000
+HitboxAction2:
+    dw $0002
+Actions:
+    dw CheckBounce
+    dw CheckPlayerIsAbove
+</pre>
+
+* La pose 0 usa la caja <code>$00</code>. Cada pose termina en <code>$FF</code>. La pose 1 solo contiene el terminador y queda vacía.
+* Las tablas de desplazamiento, ancho y alto tienen una entrada por caja. Las tablas opcionales <code>HitboxXOffsetFlip</code> y <code>HitboxYOffsetFlip</code> permiten indicar desplazamientos al voltear. Si se omiten, se usan los desplazamientos normales.
+* <code>HitboxAction1</code> selecciona la rutina de contacto y <code>HitboxAction2</code> la de ausencia de contacto. Los valores son desplazamientos dentro de <code>Actions:</code>. Usa <code>$0000</code> para la primera rutina, <code>$0002</code> para la segunda y así sucesivamente. Si no declaras acciones, se usa <code>Nothing</code>.
+
+==== Incluir rutinas auxiliares ====
+
+Usa <code>Dependencies:</code> cuando un callback necesite una rutina auxiliar que Hitman Tool no pueda detectar por sí solo, por ejemplo si el nombre de la rutina aparece únicamente dentro de una macro. Escribe <code>dw</code> seguido del nombre de la rutina, sin la extensión <code>.asm</code>. Hitman Tool busca el archivo en <code>Routines/</code> y lo incluye al instalar el parche.
+
+<pre>
+Dependencies:
+    dw PlayerFloor
+</pre>
+
+Este ejemplo incluye <code>Routines/PlayerFloor.asm</code>. La declaración no llama a la rutina ni le asigna una caja. Los valores de <code>HitboxAction1</code> y <code>HitboxAction2</code> siguen apuntando a las entradas de <code>Actions:</code>.
